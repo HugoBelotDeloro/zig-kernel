@@ -14,7 +14,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
       zigpkg = zig.packages.x86_64-linux.master;
       zlspkg = zls.packages.x86_64-linux.zls;
-      buildInputs = [ zigpkg zlspkg ] ++ (with pkgs; [ qemu_full ]);
+      buildInputs = [ zigpkg zlspkg ] ++ (with pkgs; [ qemu_full llvm ]);
     in {
       devShells.${system}.default = pkgs.mkShell {
           inherit buildInputs;
