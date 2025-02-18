@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.resolveTargetQuery(std.Target.Query {
+    const target = b.resolveTargetQuery(std.Target.Query{
         .os_tag = .freestanding,
         .cpu_arch = .riscv32,
         .abi = .none,
@@ -21,9 +21,9 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addSystemCommand(&.{"qemu-system-riscv32"});
     run_cmd.addArgs(&.{
-        "-machine", "virt",
-        "-bios", "default",
-        "-serial", "mon:stdio",
+        "-machine",   "virt",
+        "-bios",      "default",
+        "-serial",    "mon:stdio",
         "-nographic", "--no-reboot",
         "-kernel",
     });
