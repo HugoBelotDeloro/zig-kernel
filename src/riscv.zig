@@ -1,19 +1,3 @@
-const std = @import("std");
-
-const Context = void;
-const WriteError = error{};
-const Writer= std.io.Writer(Context, WriteError, writeToSerialConsole);
-
-pub const serialWriter = Writer {.context = {}, };
-
-fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
-    _ = context;
-    for (bytes) |c| {
-        putChar(c);
-    }
-    return bytes.len;
-}
-
 pub fn putChar(c: u8) void {
     _ = sbiCall(c, 0, 0, 0, 0, 0, 0, 1);
 }
