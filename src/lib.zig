@@ -19,7 +19,7 @@ fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
 
 /// Last parameter should be @src()
 pub fn panic(comptime fmt: []const u8, args: anytype, src: std.builtin.SourceLocation) noreturn {
-    try serialWriter.print("PANIC: {s}:{s}:{d}: " ++ fmt ++ "\n", .{ src.file, src.fn_name, src.line } ++ args);
+    try serialWriter.print("\n\nPANIC: {s}:{s}:{d}: " ++ fmt ++ "\n", .{ src.file, src.fn_name, src.line } ++ args);
 
     while (true) asm volatile ("wfi");
 }
@@ -37,7 +37,6 @@ pub fn logFn(
         .err => "\x1B[0;31m",
     };
     const reset_code = "\x1B[0m";
-
 
     const level_text: []const u8 = switch (level) {
         .debug => "DEB",

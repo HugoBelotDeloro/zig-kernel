@@ -28,6 +28,12 @@ pub fn build(b: *std.Build) void {
         "-kernel",
     });
     run_cmd.addArtifactArg(exe);
+
+    const debug = b.option(bool, "debug", "Start a debug session") orelse false;
+    if (debug) {
+        run_cmd.addArgs(&.{ "-s", "-S" });
+    }
+
     run_cmd.step.dependOn(b.getInstallStep());
 
     if (b.args) |args| {
@@ -36,4 +42,10 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.step("run", "Run the kernel");
     run_step.dependOn(&run_cmd.step);
+
+    const gdb_cmd = b.addSystemCommand(&.{"lldb"});
+    gdb_cmd.addArtifactArg(exe);
+    gdb_cmd.addArgs(&.{ "-o", "gdb-remote localhost:1234" });
+    const debug_step = b.step("debug", "Start an LLDB instance");
+    debug_step.dependOn(&gdb_cmd.step);
 }
