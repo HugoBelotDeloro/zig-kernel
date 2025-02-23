@@ -23,3 +23,32 @@ pub fn panic(comptime fmt: []const u8, args: anytype, src: std.builtin.SourceLoc
 
     while (true) asm volatile ("wfi");
 }
+
+pub fn logFn(
+    comptime level: std.log.Level,
+    comptime scope: @Type(.enum_literal),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const color_code: []const u8 = switch (level) {
+        .debug => "\x1B[0;37m",
+        .info => "\x1B[0;34m",
+        .warn => "\x1B[0;33m",
+        .err => "\x1B[0;31m",
+    };
+    const reset_code = "\x1B[0m";
+
+
+    const level_text: []const u8 = switch (level) {
+        .debug => "DEB",
+        .info => "INF",
+        .warn => "WRN",
+        .err => "ERR",
+    };
+
+    const underline_code = "\x1B[4:1m";
+
+    comptime var fmt: []const u8 = "[" ++ color_code ++ level_text ++ reset_code ++ ":";
+    fmt = fmt ++ underline_code ++ @tagName(scope) ++ reset_code ++ "] ";
+    serialWriter.print(fmt ++ format ++ "\n", args) catch {};
+}

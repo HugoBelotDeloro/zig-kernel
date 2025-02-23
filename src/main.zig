@@ -5,7 +5,12 @@ const std = @import("std");
 const free_ram = @extern([*]u8, .{ .name = "__free_ram" });
 const free_ram_end = @extern([*]u8, .{ .name = "__free_ram_end" });
 
-pub const std_options = std.Options{ .page_size_max = 4096, .page_size_min = 4096 };
+pub const std_options = std.Options{
+    .page_size_max = 4096,
+    .page_size_min = 4096,
+    .logFn = lib.logFn,
+    .log_level = .info,
+};
 
 const stack_top = @extern([*]u8, .{ .name = "__stack_top" });
 const bss = @extern([*]u8, .{ .name = "__bss" });
@@ -54,5 +59,9 @@ pub fn main() !void {
     const a = try allocator.allocator().create(usize);
     a.* = 42;
 
-    lib.panic("test: {d}, {*}", .{ a.*, a }, @src());
+    const scope = std.log.scoped(.kernel);
+    scope.debug("test: {d}, {*}", .{ a.*, a });
+    scope.info("test: {d}, {*}", .{ a.*, a });
+    scope.warn("test: {d}, {*}", .{ a.*, a });
+    scope.err("test: {d}, {*}", .{ a.*, a });
 }
