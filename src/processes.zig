@@ -1,6 +1,7 @@
 const std = @import("std");
 const Process = @import("Process.zig");
 const ProcsMax = 8;
+const lib = @import("lib.zig");
 
 const log = std.log.scoped(.processes);
 
@@ -11,6 +12,8 @@ var Procs: [ProcsMax]Process = .{Process{
     .stack = undefined,
     .saved_registers = undefined,
 }} ** ProcsMax;
+
+pub var current: *Process = undefined;
 
 pub fn createProcess(pc: usize) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
@@ -25,4 +28,40 @@ pub fn createProcess(pc: usize) !*Process {
     log.info("Created {}", .{proc});
 
     return proc;
+}
+
+pub fn yield() void {
+    var i = current.pid + 1;
+    while (i != current.pid) : (i = (i + 1) % ProcsMax) {
+        if (Procs[i].pid != 0 and Procs[i].state == .runnable) break;
+    }
+
+    const next = &Procs[i];
+
+    if (next == current) {
+        return;
+    }
+
+    const prev = current;
+    current = next;
+    switchContextTo(prev, current);
+}
+
+//callconv(.naked)
+fn switchContextTo(from: *Process, to: *Process) void {
+    from.saveContext();
+
+    asm volatile (
+    // Switch the stack pointer.
+    // *prev_sp = sp;
+        \\sw sp, (%[curr])
+        // Switch stack pointer (sp) here
+        \\lw sp, (%[next])
+        :
+        : [next] "r" (&to.sp),
+          [curr] "r" (&from.sp),
+    );
+    to.loadContext();
+
+    asm volatile ("ret");
 }

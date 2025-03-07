@@ -67,7 +67,7 @@ fn proc_a_entry() noreturn {
     std.log.info("starting {}", .{proc_a});
     while (true) {
         riscv.putChar('A');
-        proc_a.switchContextTo(proc_b);
+        processes.yield();
         delay();
     }
 }
@@ -76,22 +76,21 @@ fn proc_b_entry() noreturn {
     std.log.info("starting {}", .{proc_b});
     while (true) {
         riscv.putChar('B');
-        proc_b.switchContextTo(proc_a);
+        processes.yield();
         delay();
     }
 }
 
 pub fn kmain() !void {
-    var fba = std.heap.FixedBufferAllocator.init(free_ram[0 .. free_ram_end - free_ram]);
-    var allocator = KAllocator{ .backing_allocator = fba.allocator() };
+    //var fba = std.heap.FixedBufferAllocator.init(free_ram[0 .. free_ram_end - free_ram]);
+    //const allocator = KAllocator{ .backing_allocator = fba.allocator() };
 
-    const a = try allocator.allocator().create(usize);
-    a.* = 42;
+    //const log = std.log.scoped(.kernel);
 
-    const log = std.log.scoped(.kernel);
-    log.debug("test: {d}, {*}", .{ a.*, a });
+    const idle_process = try processes.createProcess(0);
+    processes.current = idle_process;
 
     proc_a = try processes.createProcess(@intFromPtr(&proc_a_entry));
     proc_b = try processes.createProcess(@intFromPtr(&proc_b_entry));
-    proc_a_entry();
+    processes.yield();
 }

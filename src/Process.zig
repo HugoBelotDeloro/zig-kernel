@@ -1,4 +1,5 @@
 const std = @import("std");
+const registers = @import("registers.zig");
 
 const StackSize = 8192;
 
@@ -43,88 +44,74 @@ pub fn init(self: *Self, pid: usize, pc: usize) void {
     };
 }
 
-//callconv(.naked)
-pub fn switchContextTo(self: *Self, to: *Self) void {
-    {
-        var ra: usize = undefined;
-        var s0: usize = undefined;
-        var s1: usize = undefined;
-        var s2: usize = undefined;
-        var s3: usize = undefined;
-        var s4: usize = undefined;
-        var s5: usize = undefined;
-        var s6: usize = undefined;
-        var s7: usize = undefined;
-        var s8: usize = undefined;
-        var s9: usize = undefined;
-        var s10: usize = undefined;
-        var s11: usize = undefined;
-        asm volatile (""
-            // Save callee-saved registers only
-            : [ra] "={ra}" (ra),
-              [s0] "={s0}" (s0),
-              [s1] "={s1}" (s1),
-              [s2] "={s2}" (s2),
-              [s3] "={s3}" (s3),
-              [s4] "={s4}" (s4),
-              [s5] "={s5}" (s5),
-              [s6] "={s6}" (s6),
-              [s7] "={s7}" (s7),
-              [s8] "={s8}" (s8),
-              [s9] "={s9}" (s9),
-              [s10] "={s10}" (s10),
-              [s11] "={s11}" (s11),
-        );
-        self.saved_registers = SavedRegisters{
-            .ra = ra,
-            .s0 = s0,
-            .s1 = s1,
-            .s2 = s2,
-            .s3 = s3,
-            .s4 = s4,
-            .s5 = s5,
-            .s6 = s6,
-            .s7 = s7,
-            .s8 = s8,
-            .s9 = s9,
-            .s10 = s10,
-            .s11 = s11,
-        };
-    }
-
-    asm volatile (
-    // Switch the stack pointer.
-    // *prev_sp = sp;
-        \\sw sp, (%[curr])
-        // Switch stack pointer (sp) here
-        \\lw sp, (%[next])
-        :
-        : [next] "r" (&to.sp),
-          [curr] "r" (&self.sp),
+pub fn saveContext(self: *Self) void {
+    var ra: usize = undefined;
+    var s0: usize = undefined;
+    var s1: usize = undefined;
+    var s2: usize = undefined;
+    var s3: usize = undefined;
+    var s4: usize = undefined;
+    var s5: usize = undefined;
+    var s6: usize = undefined;
+    var s7: usize = undefined;
+    var s8: usize = undefined;
+    var s9: usize = undefined;
+    var s10: usize = undefined;
+    var s11: usize = undefined;
+    asm volatile (""
+        // Save callee-saved registers only
+        : [ra] "={ra}" (ra),
+          [s0] "={s0}" (s0),
+          [s1] "={s1}" (s1),
+          [s2] "={s2}" (s2),
+          [s3] "={s3}" (s3),
+          [s4] "={s4}" (s4),
+          [s5] "={s5}" (s5),
+          [s6] "={s6}" (s6),
+          [s7] "={s7}" (s7),
+          [s8] "={s8}" (s8),
+          [s9] "={s9}" (s9),
+          [s10] "={s10}" (s10),
+          [s11] "={s11}" (s11),
     );
+    self.saved_registers = SavedRegisters{
+        .ra = ra,
+        .s0 = s0,
+        .s1 = s1,
+        .s2 = s2,
+        .s3 = s3,
+        .s4 = s4,
+        .s5 = s5,
+        .s6 = s6,
+        .s7 = s7,
+        .s8 = s8,
+        .s9 = s9,
+        .s10 = s10,
+        .s11 = s11,
+    };
+}
 
-    {
-        const regs = &to.saved_registers;
-        asm volatile (
-        // Restore callee-saved registers only
-        // Then return
-            \\ret
-            :
-            : [ra] "{ra}" (regs.ra),
-              [s0] "{s0}" (regs.s0),
-              [s1] "{s1}" (regs.s1),
-              [s2] "{s2}" (regs.s2),
-              [s3] "{s3}" (regs.s3),
-              [s4] "{s4}" (regs.s4),
-              [s5] "{s5}" (regs.s5),
-              [s6] "{s6}" (regs.s6),
-              [s7] "{s7}" (regs.s7),
-              [s8] "{s8}" (regs.s8),
-              [s9] "{s9}" (regs.s9),
-              [s10] "{s10}" (regs.s10),
-              [s11] "{s11}" (regs.s11),
-        );
-    }
+pub fn loadContext(self: *Self) void {
+    const regs = &self.saved_registers;
+    asm volatile (
+    // Restore callee-saved registers only
+    // Then return
+        ""
+        :
+        : [ra] "{ra}" (regs.ra),
+          [s0] "{s0}" (regs.s0),
+          [s1] "{s1}" (regs.s1),
+          [s2] "{s2}" (regs.s2),
+          [s3] "{s3}" (regs.s3),
+          [s4] "{s4}" (regs.s4),
+          [s5] "{s5}" (regs.s5),
+          [s6] "{s6}" (regs.s6),
+          [s7] "{s7}" (regs.s7),
+          [s8] "{s8}" (regs.s8),
+          [s9] "{s9}" (regs.s9),
+          [s10] "{s10}" (regs.s10),
+          [s11] "{s11}" (regs.s11),
+    );
 }
 
 pub fn format(
