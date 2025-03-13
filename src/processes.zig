@@ -42,6 +42,8 @@ pub fn yield() void {
         return;
     }
 
+    asm volatile ("csrw sscratch, %[sscratch]" : : [sscratch] "r" (@as([*]u8, @ptrCast(&next.stack)) + next.stack.len));
+
     const prev = current;
     current = next;
     switchContextTo(prev, current);

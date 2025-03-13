@@ -64,7 +64,7 @@ pub const TrapFrame = extern struct {
 
 export fn kernel_entry() align(4) callconv(.Naked) void {
     asm volatile (
-        \\csrw sscratch, sp
+        \\csrrw sp, sscratch, sp
         \\addi sp, sp, -4 * 31
         \\sw ra,  4 * 0(sp)
         \\sw gp,  4 * 1(sp)
@@ -96,8 +96,15 @@ export fn kernel_entry() align(4) callconv(.Naked) void {
         \\sw s9,  4 * 27(sp)
         \\sw s10, 4 * 28(sp)
         \\sw s11, 4 * 29(sp)
+
+        // Retrieve and save the stack pointer at time of exception
         \\csrr a0, sscratch
         \\sw a0, 4 * 30(sp)
+
+        // Reset the kernel stack
+        \\addi a0, sp, 4 * 31
+        \\csrw sscratch, a0
+
         \\mv a0, sp
         \\call handle_trap
         \\lw ra,  4 * 0(sp)

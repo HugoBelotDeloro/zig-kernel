@@ -1,7 +1,6 @@
 const std = @import("std");
-const registers = @import("registers.zig");
 
-const StackSize = 8192;
+pub const StackSize = 8192;
 
 const Self = @This();
 
