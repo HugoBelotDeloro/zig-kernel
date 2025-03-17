@@ -1,34 +1,38 @@
-const lib = @import("lib.zig");
-const riscv = @import("riscv.zig");
+pub const lib = @import("lib.zig");
+pub const riscv = @import("riscv.zig");
 const std = @import("std");
+const page_allocator = @import("page_allocator.zig");
+const PageAllocator = page_allocator.PageAllocator;
 const processes = @import("processes.zig");
 const Process = @import("Process.zig");
 
-const free_ram = @extern([*]u8, .{ .name = "__free_ram" });
-const free_ram_end = @extern([*]u8, .{ .name = "__free_ram_end" });
+pub const PageSize = page_allocator.PageSize;
+
+pub const KernelBase = @extern([*]u8, .{ .name = "__kernel_base" });
+pub const Bss = @extern([*]u8, .{ .name = "__bss" });
+pub const BssEnd = @extern([*]u8, .{ .name = "__bss_end" });
+pub const StackTop = @extern([*]u8, .{ .name = "__stack_top" });
+pub const FreeRamStart = @extern([*]u8, .{ .name = "__free_ram" });
+pub const FreeRamEnd = @extern([*]u8, .{ .name = "__free_ram_end" });
 
 pub const std_options = std.Options{
-    .page_size_max = 4096,
-    .page_size_min = 4096,
+    .page_size_max = PageSize,
+    .page_size_min = PageSize,
     .logFn = lib.logFn,
     .log_level = .info,
 };
-
-const stack_top = @extern([*]u8, .{ .name = "__stack_top" });
-const bss = @extern([*]u8, .{ .name = "__bss" });
-const bss_end = @extern([*]u8, .{ .name = "__bss_end" });
 
 export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
     asm volatile (
         \\mv sp, %[stack_top]
         \\j kernel_setup
         :
-        : [stack_top] "r" (stack_top),
+        : [stack_top] "r" (StackTop),
     );
 }
 
 export fn kernel_setup() noreturn {
-    @memset(bss[0 .. bss_end - bss], 0);
+    @memset(Bss[0 .. BssEnd - Bss], 0);
 
     riscv.setTrapHandler();
 
@@ -41,16 +45,15 @@ export fn kernel_setup() noreturn {
 
 const KAllocator = std.heap.GeneralPurposeAllocator(.{
     .thread_safe = false,
+    .page_size = PageSize,
+    .backing_allocator_zeroes = false,
 });
 
 // Override the page allocator to avoid Zig trying to import the default page allocator,
 // as it does not exist for freestanding.
 pub const os = struct {
     pub const heap = struct {
-        pub const page_allocator: std.mem.Allocator = .{
-            .ptr = undefined,
-            .vtable = undefined,
-        };
+        pub const page_allocator = PageAllocator;
     };
 };
 
@@ -82,10 +85,17 @@ fn proc_b_entry() noreturn {
 }
 
 pub fn kmain() !void {
-    //var fba = std.heap.FixedBufferAllocator.init(free_ram[0 .. free_ram_end - free_ram]);
-    //const allocator = KAllocator{ .backing_allocator = fba.allocator() };
+    var gpa_instance = KAllocator.init;
+    const gpa = gpa_instance.allocator();
 
-    //const log = std.log.scoped(.kernel);
+    const log = std.log.scoped(.kernel);
+    log.info("kernel started", .{});
+
+    const u = try gpa.create(usize);
+    log.info("allocated {*}", .{u});
+    u.* = 3;
+    log.info("value: {d}", .{u.*});
+    gpa.destroy(u);
 
     const idle_process = try processes.createProcess(0);
     processes.current = idle_process;
