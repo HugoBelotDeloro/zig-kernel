@@ -1,6 +1,11 @@
 const std = @import("std");
+const root = @import("root");
+const sv32 = root.riscv.sv32;
 
 pub const StackSize = 8192;
+const PageSize = root.PageSize;
+
+const log = std.log.scoped(.process);
 
 const Self = @This();
 
@@ -29,9 +34,20 @@ pid: usize,
 state: State = .unused,
 sp: *u8,
 saved_registers: SavedRegisters,
+page_table: sv32.PageTablePtr,
 stack: [StackSize]u8,
 
-pub fn init(self: *Self, pid: usize, pc: usize) void {
+pub fn init(self: *Self, pid: usize, pc: usize, alloc: std.mem.Allocator) !void {
+    const page_table = try sv32.createPageTable(alloc);
+    log.info("Created page table {*} for process {d}", .{ page_table, pid });
+
+    // Number of pages that need to be mapped
+    const size_to_map = (root.FreeRamEnd - root.KernelBase) / PageSize;
+
+    const base_address: u32 = @intFromPtr(root.KernelBase);
+
+    try sv32.mapRange(page_table, size_to_map, sv32.VirtAddr.from(base_address), sv32.PhysAddr.from(base_address), sv32.PageFlags.Rwx, alloc);
+
     self.* = Self{
         .pid = pid,
         .sp = &self.stack[self.stack.len - 1],
@@ -39,8 +55,10 @@ pub fn init(self: *Self, pid: usize, pc: usize) void {
         .saved_registers = SavedRegisters{
             .ra = pc,
         },
+        .page_table = page_table,
         .stack = undefined,
     };
+    log.info("Created process {}", .{self});
 }
 
 pub fn saveContext(self: *Self) void {

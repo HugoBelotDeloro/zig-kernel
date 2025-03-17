@@ -19,7 +19,8 @@ pub const std_options = std.Options{
     .page_size_max = PageSize,
     .page_size_min = PageSize,
     .logFn = lib.logFn,
-    .log_level = .info,
+    .log_level = .warn,
+    .log_scope_levels = &.{.{ .scope = .sv32, .level = .info }},
 };
 
 export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
@@ -91,16 +92,10 @@ pub fn kmain() !void {
     const log = std.log.scoped(.kernel);
     log.info("kernel started", .{});
 
-    const u = try gpa.create(usize);
-    log.info("allocated {*}", .{u});
-    u.* = 3;
-    log.info("value: {d}", .{u.*});
-    gpa.destroy(u);
-
-    const idle_process = try processes.createProcess(0);
+    const idle_process = try processes.createProcess(0, gpa);
     processes.current = idle_process;
 
-    proc_a = try processes.createProcess(@intFromPtr(&proc_a_entry));
-    proc_b = try processes.createProcess(@intFromPtr(&proc_b_entry));
+    proc_a = try processes.createProcess(@intFromPtr(&proc_a_entry), gpa);
+    proc_b = try processes.createProcess(@intFromPtr(&proc_b_entry), gpa);
     processes.yield();
 }

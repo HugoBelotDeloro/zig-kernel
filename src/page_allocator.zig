@@ -16,9 +16,9 @@ var next_free_page: ?*FreePageListEntry = null;
 
 const log = std.log.scoped(.page_allocator);
 
-pub const PageAllocator = Allocator {
+pub const PageAllocator = Allocator{
     .ptr = undefined,
-    .vtable = &Allocator.VTable {
+    .vtable = &Allocator.VTable{
         .alloc = allocPage,
         .free = freePage,
         .remap = Allocator.noRemap,
@@ -52,15 +52,12 @@ pub fn freePage(data: *anyopaque, memory: []u8, alignment: Alignment, ret_addr: 
     _ = alignment;
     _ = ret_addr;
 
-    log.info("in freePage", .{});
-
     const page: *Page = @ptrCast(memory);
 
     if (&(next_page - 1)[0] == page) {
         next_page -= 1;
         log.info("next_page successfully decremented from {*}", .{page});
-    }
-    else {
+    } else {
         const free_page_list_entry = FreePageListEntry.from(page, next_free_page);
         next_free_page = free_page_list_entry;
         log.info("page {*} added to free list", .{free_page_list_entry});

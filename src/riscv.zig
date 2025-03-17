@@ -1,27 +1,15 @@
+pub const csr = @import("riscv/csr.zig");
+pub const sv32 = @import("riscv/sv32.zig");
+
 const lib = @import("lib.zig");
+
+pub const PageSize = 4096;
+
+const writeCsr = csr.writeCsr;
+const readCsr = csr.readCsr;
 
 pub fn putChar(c: u8) void {
     _ = sbiCall(c, 0, 0, 0, 0, 0, 0, 1);
-}
-
-pub const Csr = enum {
-    scause,
-    stval,
-    sepc,
-    stvec,
-};
-
-fn readCsr(comptime reg: Csr) usize {
-    return asm volatile ("csrr %[ret], " ++ @tagName(reg)
-        : [ret] "=r" (-> usize),
-    );
-}
-
-fn writeCsr(comptime reg: Csr, value: usize) void {
-    asm volatile ("csrw " ++ @tagName(reg) ++ ", %[val]"
-        :
-        : [val] "r" (value),
-    );
 }
 
 pub fn setTrapHandler() void {
@@ -104,7 +92,6 @@ export fn kernel_entry() align(4) callconv(.Naked) void {
         // Reset the kernel stack
         \\addi a0, sp, 4 * 31
         \\csrw sscratch, a0
-
         \\mv a0, sp
         \\call handle_trap
         \\lw ra,  4 * 0(sp)

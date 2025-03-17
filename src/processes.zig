@@ -11,11 +11,12 @@ var Procs: [ProcsMax]Process = .{Process{
     .sp = undefined,
     .stack = undefined,
     .saved_registers = undefined,
+    .page_table = undefined,
 }} ** ProcsMax;
 
 pub var current: *Process = undefined;
 
-pub fn createProcess(pc: usize) !*Process {
+pub fn createProcess(pc: usize, alloc: std.mem.Allocator) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
         if (process.state == .unused) {
             break id;
@@ -24,7 +25,7 @@ pub fn createProcess(pc: usize) !*Process {
 
     var proc = &Procs[proc_id];
 
-    proc.init(proc_id, pc);
+    try proc.init(proc_id, pc, alloc);
     log.info("Created {}", .{proc});
 
     return proc;
@@ -42,7 +43,10 @@ pub fn yield() void {
         return;
     }
 
-    asm volatile ("csrw sscratch, %[sscratch]" : : [sscratch] "r" (@as([*]u8, @ptrCast(&next.stack)) + next.stack.len));
+    asm volatile ("csrw sscratch, %[sscratch]"
+        :
+        : [sscratch] "r" (@as([*]u8, @ptrCast(&next.stack)) + next.stack.len),
+    );
 
     const prev = current;
     current = next;
