@@ -10,8 +10,40 @@ const isAligned = std.mem.isAligned;
 
 const log = std.log.scoped(.sv32);
 
+pub const Satp = packed struct(u32) {
+    /// Physical page number of the root page table
+    ppn_0: u10,
+    ppn_1: u12,
+    /// Address space identifier
+    asid: u9,
+    mode: enum(u1) {
+        bare = 0,
+        sv32 = 1,
+    },
+
+    pub fn setBare(self: Satp) void {
+        self = @bitCast(0);
+    }
+
+    pub fn set(self: Satp) void {
+        asm volatile ("sfence.vma");
+        riscv.csr.writeCsr(.satp, @bitCast(self));
+        asm volatile ("sfence.vma");
+    }
+
+    pub fn fromPageTable(page_table: PageTable.Ptr) Satp {
+        const pt: PhysAddr = @bitCast(@intFromPtr(page_table));
+        return .{
+            .ppn_0 = pt.ppn_0,
+            .ppn_1 = pt.ppn_1,
+            .asid = 0,
+            .mode = .sv32,
+        };
+    }
+};
+
 /// Sv32 Virtual Address
-pub const VirtAddr = packed struct(u32) {
+const VirtAddr = packed struct(u32) {
     page_offset: u12,
     vpn_0: u10,
     vpn_1: u10,
@@ -35,7 +67,7 @@ pub const VirtAddr = packed struct(u32) {
 };
 
 /// Sv32 Physical Address
-pub const PhysAddr = packed struct(u32) {
+const PhysAddr = packed struct(u32) {
     page_offset: u12,
     ppn_0: u10,
     ppn_1: u10,
@@ -124,7 +156,7 @@ pub const PageTableEntry = packed struct(u32) {
         return @bitCast(PhysAddr{ .ppn_1 = @truncate(self.ppn_1), .ppn_0 = self.ppn_0, .page_offset = 0 });
     }
 
-    pub fn nextPage(self: PageTableEntry) ![*]PageTableEntry {
+    pub fn nextPage(self: PageTableEntry) !PageTable.Ptr {
         if (self.flags.r or self.flags.w or self.flags.x)
             return error.LeafPage;
         return @ptrFromInt(self.address());
@@ -142,44 +174,49 @@ pub const PageTableEntry = packed struct(u32) {
     }
 };
 
-pub const PageTable = [EntriesPerTable]PageTableEntry;
-pub const PageTablePtr = *align(PageSize) PageTable;
+pub const PageTable = struct {
+    entries: [EntriesPerTable]PageTableEntry,
 
-pub fn createPageTable(alloc: std.mem.Allocator) !PageTablePtr {
-    const page_table = try alloc.alignedAlloc(PageTable, @intCast(PageSize), 1);
-    return &page_table.ptr[0];
-}
+    pub const Ptr = *align(PageSize) PageTable;
 
-pub fn mapPage(table_1: PageTablePtr, va: VirtAddr, pa: PhysAddr, flags: PageFlags, alloc: std.mem.Allocator) !void {
-    if (!isAligned(va.to(), PageSize))
-        lib.panic("unaligned virtual address {x}", .{va.to()}, @src());
-
-    if (!isAligned(pa.to(), PageSize))
-        lib.panic("unaligned physical address {x}", .{pa.to()}, @src());
-
-    const vpn_1 = va.vpn_1;
-    if (!table_1[vpn_1].v) {
-        const page = try createPageTable(alloc);
-        const addr = PhysAddr.from(@intFromPtr(page));
-        table_1[vpn_1].init(.{}, addr);
-        log.debug("new lv1 PTE: {}", .{table_1[vpn_1]});
+    pub fn create(alloc: std.mem.Allocator) !*align(PageSize) PageTable {
+        const page_table = try alloc.alignedAlloc(PageTable, @intCast(PageSize), 1);
+        return &page_table.ptr[0];
     }
 
-    const table_0 = try table_1[vpn_1].nextPage();
-    const vpn_0 = va.vpn_0;
-    table_0[vpn_0] = PageTableEntry{ .ppn_0 = pa.ppn_0, .ppn_1 = pa.ppn_1, .v = true, .flags = flags };
-    log.debug("new lv2 PTE: {}", .{table_0[vpn_0]});
-}
+    fn mapPageInner(table_1: Ptr, va: VirtAddr, pa: PhysAddr, flags: PageFlags, alloc: std.mem.Allocator) !void {
+        if (!isAligned(va.to(), PageSize))
+            lib.panic("unaligned virtual address {x}", .{va.to()}, @src());
 
-pub fn mapRange(table_1: PageTablePtr, len: usize, base_va: VirtAddr, base_pa: PhysAddr, flags: PageFlags, alloc: std.mem.Allocator) !void {
-    var i: usize = 0;
-    log.info("mapping {d} pages for page {*}", .{ len, table_1 });
-    while (i < len) : (i += 1) {
-        const va = base_va.offset(PageSize * i);
-        const pa = base_pa.offset(PageSize * i);
-        try mapPage(table_1, va, pa, flags, alloc);
+        if (!isAligned(pa.to(), PageSize))
+            lib.panic("unaligned physical address {x}", .{pa.to()}, @src());
+
+        const entry_1 = &table_1.entries[va.vpn_1];
+        if (!entry_1.v) {
+            const page = try PageTable.create(alloc);
+            const addr = PhysAddr.from(@intFromPtr(page));
+            entry_1.init(.{}, addr);
+            log.debug("new lv1 PTE: {}", .{entry_1});
+        }
+
+        const table_0 = try entry_1.nextPage();
+        const entry_0 = &table_0.entries[va.vpn_0];
+        entry_0.* = PageTableEntry{ .ppn_0 = pa.ppn_0, .ppn_1 = pa.ppn_1, .v = true, .flags = flags };
+        log.debug("new lv2 PTE: {}", .{entry_0});
     }
-}
+
+    pub fn mapPage(self: Ptr, va: u32, pa: u32, flags: PageFlags, alloc: std.mem.Allocator) !void {
+        return self.mapPageInner(VirtAddr.from(va), PhysAddr.from(pa), flags, alloc);
+    }
+
+    pub fn mapRange(table_1: Ptr, len: usize, base_va: u32, base_pa: u32, flags: PageFlags, alloc: std.mem.Allocator) !void {
+        var i: usize = 0;
+        log.info("mapping {d} pages for table {*}", .{ len, table_1 });
+        while (i < len) : (i += 1) {
+            try table_1.mapPage(base_va + PageSize * i, base_pa + PageSize * i, flags, alloc);
+        }
+    }
+};
 
 const t = std.testing;
 

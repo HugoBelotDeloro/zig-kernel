@@ -3,6 +3,7 @@ pub const Csr = enum {
     stval,
     sepc,
     stvec,
+    satp,
 };
 
 pub fn readCsr(comptime reg: Csr) usize {
@@ -17,18 +18,3 @@ pub fn writeCsr(comptime reg: Csr, value: usize) void {
         : [val] "r" (value),
     );
 }
-
-pub const Satp = packed struct(u32) {
-    /// Physical page number of the root page table
-    ppn: u22,
-    /// Address space identifier
-    asid: u9,
-    mode: enum(u1) {
-        bare = 0,
-        sv32 = 1,
-    },
-
-    pub fn setBare(self: Satp) void {
-        self = @bitCast(0);
-    }
-};

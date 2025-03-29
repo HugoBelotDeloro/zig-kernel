@@ -34,11 +34,11 @@ pid: usize,
 state: State = .unused,
 sp: *u8,
 saved_registers: SavedRegisters,
-page_table: sv32.PageTablePtr,
+page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8,
 
 pub fn init(self: *Self, pid: usize, pc: usize, alloc: std.mem.Allocator) !void {
-    const page_table = try sv32.createPageTable(alloc);
+    const page_table = try sv32.PageTable.create(alloc);
     log.info("Created page table {*} for process {d}", .{ page_table, pid });
 
     // Number of pages that need to be mapped
@@ -46,7 +46,7 @@ pub fn init(self: *Self, pid: usize, pc: usize, alloc: std.mem.Allocator) !void 
 
     const base_address: u32 = @intFromPtr(root.KernelBase);
 
-    try sv32.mapRange(page_table, size_to_map, sv32.VirtAddr.from(base_address), sv32.PhysAddr.from(base_address), sv32.PageFlags.Rwx, alloc);
+    try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.Rwx, alloc);
 
     self.* = Self{
         .pid = pid,

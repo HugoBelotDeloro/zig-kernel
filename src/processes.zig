@@ -43,6 +43,8 @@ pub fn yield() void {
         return;
     }
 
+    const Satp = @import("root").riscv.sv32.Satp;
+    Satp.fromPageTable(next.page_table).set();
     asm volatile ("csrw sscratch, %[sscratch]"
         :
         : [sscratch] "r" (@as([*]u8, @ptrCast(&next.stack)) + next.stack.len),
@@ -50,6 +52,7 @@ pub fn yield() void {
 
     const prev = current;
     current = next;
+
     switchContextTo(prev, current);
 }
 
