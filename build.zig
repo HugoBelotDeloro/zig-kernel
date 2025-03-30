@@ -7,12 +7,16 @@ pub fn build(b: *std.Build) void {
         .abi = .none,
     });
 
-    const exe = b.addExecutable(.{
-        .name = "kernel.elf",
+    const module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = .ReleaseSmall,
         .strip = false,
+    });
+
+    const exe = b.addExecutable(.{
+        .name = "kernel.elf",
+        .root_module = module,
     });
     exe.entry = .disabled;
     exe.setLinkerScript(b.path("./kernel.ld"));
@@ -48,4 +52,11 @@ pub fn build(b: *std.Build) void {
     gdb_cmd.addArgs(&.{ "-o", "gdb-remote localhost:1234" });
     const debug_step = b.step("debug", "Start an LLDB instance");
     debug_step.dependOn(&gdb_cmd.step);
+
+    const tests = b.addTest(.{
+        .root_module = module,
+    });
+    const run_unit_tests = b.addRunArtifact(tests);
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&run_unit_tests.step);
 }
