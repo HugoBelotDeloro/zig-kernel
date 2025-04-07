@@ -15,6 +15,8 @@ pub const StackTop = @extern([*]u8, .{ .name = "__stack_top" });
 pub const FreeRamStart = @extern([*]u8, .{ .name = "__free_ram" });
 pub const FreeRamEnd = @extern([*]u8, .{ .name = "__free_ram_end" });
 
+const shell = @embedFile("shell.bin");
+
 pub const std_options = std.Options{
     .page_size_max = PageSize,
     .page_size_min = PageSize,
@@ -84,6 +86,8 @@ fn proc_b_entry() noreturn {
         delay();
     }
 }
+
+const UserBase = 0x1000000;
 
 pub fn kmain() !void {
     var gpa_instance = KAllocator.init;
