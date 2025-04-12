@@ -1,14 +1,26 @@
 const std = @import("std");
 const riscv = @import("riscv.zig");
 
-const Context = void;
-const WriteError = error{};
-const Writer = std.io.Writer(Context, WriteError, writeToSerialConsole);
+const PageSize = riscv.PageSize;
 
+// Allocation
+
+const page_allocator = @import("lib/page_allocator.zig");
+pub const allocPages = page_allocator.allocPages;
+pub const freePages = page_allocator.freePages;
+pub const allocPagesFromLen = page_allocator.allocPagesFromLen;
+pub const freePagesFromLen = page_allocator.freePagesFromLen;
+pub const PageAllocator = page_allocator.PageAllocator;
+
+// Logging
+
+const Context = void;
+const Writer = std.io.Writer(Context, WriteError, writeToSerialConsole);
 pub const serialWriter = Writer{
     .context = {},
 };
 
+const WriteError = error{};
 fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
     _ = context;
     for (bytes) |c| {

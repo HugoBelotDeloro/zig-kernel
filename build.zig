@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) void {
     const shell = b.createModule(.{
         .root_source_file = b.path("user/user.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .ReleaseSmall,
         .strip = false,
     });
 
@@ -34,7 +34,9 @@ pub fn build(b: *std.Build) void {
         .name = "shell.elf",
         .root_module = shell,
     });
+    shell_elf.entry = .disabled;
     shell_elf.setLinkerScript(b.path("./user.ld"));
+    b.installArtifact(shell_elf);
 
     //const shell_bin = b.addObjCopy(shell_elf.getEmittedBin(), .{
     //    .set_section_flags = .{ .section_name = ".bss", .flags = .{ .alloc = true, .contents = true } },
@@ -43,6 +45,8 @@ pub fn build(b: *std.Build) void {
     const shell_bin = b.addSystemCommand(&.{ "llvm-objcopy", "--set-section-flags", ".bss=alloc,contents", "-O", "binary" });
     shell_bin.addArtifactArg(shell_elf);
     const shell_bin_path = shell_bin.addOutputFileArg("shell.bin");
+    const i = b.addInstallFile(shell_bin_path, "shell.bin");
+    b.install_tls.step.dependOn(&i.step);
 
     kernel_only.root_module.addAnonymousImport("shell.bin", .{ .root_source_file = shell_bin_path });
 

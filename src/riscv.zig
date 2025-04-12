@@ -130,7 +130,7 @@ export fn kernel_entry() align(4) callconv(.Naked) void {
 }
 
 export fn handle_trap(f: *TrapFrame) void {
-    const scause: usize = readCsr(.scause);
+    const scause: csr.Scause = @bitCast(readCsr(.scause));
     const stval: usize = readCsr(.stval);
     const user_pc: usize = readCsr(.sepc);
 

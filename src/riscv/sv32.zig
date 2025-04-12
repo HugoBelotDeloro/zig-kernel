@@ -114,6 +114,12 @@ pub const PageFlags = packed struct(u9) {
         .x = true,
     };
 
+    pub const Rxu = PageFlags{
+        .r = true,
+        .x = true,
+        .u = true,
+    };
+
     pub fn format(
         self: PageFlags,
         comptime fmt: []const u8,
@@ -179,12 +185,12 @@ pub const PageTable = struct {
 
     pub const Ptr = *align(PageSize) PageTable;
 
-    pub fn create(alloc: std.mem.Allocator) !*align(PageSize) PageTable {
-        const page_table = try alloc.alignedAlloc(PageTable, @intCast(PageSize), 1);
+    pub fn create(page_alloc: std.mem.Allocator) !*align(PageSize) PageTable {
+        const page_table = try page_alloc.alignedAlloc(PageTable, @intCast(PageSize), 1);
         return &page_table.ptr[0];
     }
 
-    fn mapPageInner(table_1: Ptr, va: VirtAddr, pa: PhysAddr, flags: PageFlags, alloc: std.mem.Allocator) !void {
+    fn mapPageInner(table_1: Ptr, va: VirtAddr, pa: PhysAddr, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
         if (!isAligned(va.to(), PageSize))
             lib.panic("unaligned virtual address {x}", .{va.to()}, @src());
 
@@ -193,7 +199,7 @@ pub const PageTable = struct {
 
         const entry_1 = &table_1.entries[va.vpn_1];
         if (!entry_1.v) {
-            const page = try PageTable.create(alloc);
+            const page = try PageTable.create(page_alloc);
             const addr = PhysAddr.from(@intFromPtr(page));
             entry_1.init(.{}, addr);
             log.debug("new lv1 PTE: {}", .{entry_1});
@@ -205,15 +211,15 @@ pub const PageTable = struct {
         log.debug("new lv2 PTE: {}", .{entry_0});
     }
 
-    pub fn mapPage(self: Ptr, va: u32, pa: u32, flags: PageFlags, alloc: std.mem.Allocator) !void {
-        return self.mapPageInner(VirtAddr.from(va), PhysAddr.from(pa), flags, alloc);
+    pub fn mapPage(self: Ptr, va: u32, pa: u32, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
+        return self.mapPageInner(VirtAddr.from(va), PhysAddr.from(pa), flags, page_alloc);
     }
 
-    pub fn mapRange(table_1: Ptr, len: usize, base_va: u32, base_pa: u32, flags: PageFlags, alloc: std.mem.Allocator) !void {
+    pub fn mapRange(table_1: Ptr, len: usize, base_va: u32, base_pa: u32, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
         var i: usize = 0;
-        log.info("mapping {d} pages for table {*}", .{ len, table_1 });
-        while (i < len) : (i += 1) {
-            try table_1.mapPage(base_va + PageSize * i, base_pa + PageSize * i, flags, alloc);
+        log.debug("mapping {d} bytes for table {*}", .{ len, table_1 });
+        while (i < len) : (i += PageSize) {
+            try table_1.mapPage(base_va + i, base_pa + i, flags, page_alloc);
         }
     }
 };

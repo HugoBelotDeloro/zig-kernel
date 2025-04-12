@@ -16,7 +16,7 @@ var Procs: [ProcsMax]Process = .{Process{
 
 pub var current: *Process = undefined;
 
-pub fn createProcess(pc: usize, alloc: std.mem.Allocator) !*Process {
+pub fn createProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
         if (process.state == .unused) {
             break id;
@@ -25,7 +25,7 @@ pub fn createProcess(pc: usize, alloc: std.mem.Allocator) !*Process {
 
     var proc = &Procs[proc_id];
 
-    try proc.init(proc_id, pc, alloc);
+    try proc.init(proc_id, image, pa);
     log.info("Created {}", .{proc});
 
     return proc;

@@ -1,6 +1,9 @@
 const std = @import("std");
 const root = @import("root");
+const lib = root.lib;
 const sv32 = root.riscv.sv32;
+
+pub const UserBase: usize = 0x1000000;
 
 pub const StackSize = 8192;
 const PageSize = root.PageSize;
@@ -37,28 +40,44 @@ saved_registers: SavedRegisters,
 page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8,
 
-pub fn init(self: *Self, pid: usize, pc: usize, alloc: std.mem.Allocator) !void {
-    const page_table = try sv32.PageTable.create(alloc);
-    log.info("Created page table {*} for process {d}", .{ page_table, pid });
+pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
+    const page_table = try sv32.PageTable.create(page_alloc);
+    log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
-    // Number of pages that need to be mapped
-    const size_to_map = (root.FreeRamEnd - root.KernelBase) / PageSize;
-
+    // Map kernel pages
+    const size_to_map = root.FreeRamEnd - root.KernelBase;
     const base_address: u32 = @intFromPtr(root.KernelBase);
+    try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.Rwx, page_alloc);
 
-    try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.Rwx, alloc);
+    // Map user pages
+    const pages = try lib.allocPagesFromLen(image.len);
+    @memcpy(pages, image);
+    try page_table.mapRange(image.len, UserBase, @intFromPtr(pages), sv32.PageFlags.Rxu, page_alloc);
 
     self.* = Self{
         .pid = pid,
         .sp = &self.stack[self.stack.len - 1],
         .state = .runnable,
         .saved_registers = SavedRegisters{
-            .ra = pc,
+            .ra = @intFromPtr(&userEntry),
         },
         .page_table = page_table,
         .stack = undefined,
     };
-    log.info("Created process {}", .{self});
+}
+
+fn userEntry() callconv(.naked) noreturn {
+    const sstatus = @import("riscv.zig").csr.Sstatus{
+        .spie = true,
+    };
+    asm volatile (
+        \\csrw sepc, %[sepc]
+        \\csrw sstatus, %[sstatus]
+        \\sret
+        :
+        : [sepc] "r" (UserBase),
+          [sstatus] "r" (sstatus),
+    );
 }
 
 pub fn saveContext(self: *Self) void {
@@ -137,5 +156,5 @@ pub fn format(
     _: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    try writer.print("{{Process #{d} sp {x} stack {x} {s}}}", .{ self.pid, @intFromPtr(self.sp), @intFromPtr(&self.stack), @tagName(self.state) });
+    try writer.print("{{Process #{d} sp {x} ra {x} {s}}}", .{ self.pid, @intFromPtr(self.sp), self.saved_registers.ra, @tagName(self.state) });
 }
