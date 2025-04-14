@@ -7,12 +7,20 @@ pub fn build(b: *std.Build) void {
         .abi = .none,
     });
 
+    const common = b.createModule(.{
+        .root_source_file = b.path("common/common.zig"),
+        .target = target,
+        .optimize = .ReleaseSmall,
+        .strip = false,
+    });
+
     const kernel = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = .ReleaseSmall,
         .strip = false,
     });
+    kernel.addImport("common", common);
 
     const shell = b.createModule(.{
         .root_source_file = b.path("user/user.zig"),
@@ -20,6 +28,7 @@ pub fn build(b: *std.Build) void {
         .optimize = .ReleaseSmall,
         .strip = false,
     });
+    shell.addImport("common", common);
 
     const kernel_only = b.addExecutable(.{
         .name = "kernel.elf",

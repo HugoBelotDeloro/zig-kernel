@@ -114,8 +114,9 @@ pub const PageFlags = packed struct(u9) {
         .x = true,
     };
 
-    pub const Rxu = PageFlags{
+    pub const Rwxu = PageFlags{
         .r = true,
+        .w = true,
         .x = true,
         .u = true,
     };

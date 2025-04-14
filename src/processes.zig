@@ -39,25 +39,28 @@ pub fn yield() void {
 
     const next = &Procs[i];
 
+    // Switch to idle
+    if (next.state != .runnable) switchContextTo(current, &Procs[0]);
+
     if (next == current) {
+        log.debug("process #{d} keeps running", .{current.pid});
         return;
     }
 
-    const Satp = @import("root").riscv.sv32.Satp;
-    Satp.fromPageTable(next.page_table).set();
-    asm volatile ("csrw sscratch, %[sscratch]"
-        :
-        : [sscratch] "r" (@as([*]u8, @ptrCast(&next.stack)) + next.stack.len),
-    );
-
-    const prev = current;
-    current = next;
-
-    switchContextTo(prev, current);
+    switchContextTo(current, next);
 }
 
-//callconv(.naked)
 fn switchContextTo(from: *Process, to: *Process) void {
+    log.info("switching from process #{d} to #{d}", .{ from.pid, to.pid });
+    const Satp = @import("root").riscv.sv32.Satp;
+    Satp.fromPageTable(to.page_table).set();
+    asm volatile ("csrw sscratch, %[sscratch]"
+        :
+        : [sscratch] "r" (@as([*]u8, @ptrCast(&to.stack)) + to.stack.len),
+    );
+
+    current = to;
+
     from.saveContext();
 
     asm volatile (

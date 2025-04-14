@@ -73,5 +73,27 @@ pub fn kmain() !void {
 
     _ = try processes.createProcess(shell, gpa);
 
+    // Enable interrupts at first switch to U-mode
+    var sstatus: riscv.csr.Sstatus = @bitCast(riscv.csr.readCsr(.sstatus));
+    sstatus.spie = true;
+    riscv.csr.writeCsr(.sstatus, @bitCast(sstatus));
+
+    // Enable all types of interrupts
+    const sie = riscv.csr.Sie{
+        .software = true,
+        .timer = true,
+        .external = true,
+    };
+    riscv.csr.writeCsr(.sie, @bitCast(sie));
+
+    // Set initial timer
+    //const i = riscv.csr.readCsr(.time);
+    //riscv.opensbi.setTimer(i + 10000000);
+
+    // What I want to do now:
+    // - Have an idle process which can be switched to, has low priority (only switched to if no
+    //   other is ready, only runs the wfi instruction and waits for the next timer to switch)
+    // - Putchar should not busy loop and instead set the process to waiting then switch
+
     processes.yield();
 }

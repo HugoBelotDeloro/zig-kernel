@@ -1,5 +1,6 @@
 const std = @import("std");
 const riscv = @import("riscv.zig");
+const processes = @import("processes.zig");
 
 const PageSize = riscv.PageSize;
 
@@ -24,7 +25,7 @@ const WriteError = error{};
 fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
     _ = context;
     for (bytes) |c| {
-        riscv.putChar(c);
+        riscv.opensbi.putChar(c);
     }
     return bytes.len;
 }
@@ -63,3 +64,6 @@ pub fn logFn(
     fmt = fmt ++ underline_code ++ @tagName(scope) ++ reset_code ++ "] ";
     serialWriter.print(fmt ++ format ++ "\n", args) catch {};
 }
+
+// Process control
+pub const yield = @import("processes.zig").yield;

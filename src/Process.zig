@@ -15,6 +15,7 @@ const Self = @This();
 const State = enum {
     unused,
     runnable,
+    exited,
 };
 
 const SavedRegisters = struct {
@@ -52,7 +53,7 @@ pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allo
     // Map user pages
     const pages = try lib.allocPagesFromLen(image.len);
     @memcpy(pages, image);
-    try page_table.mapRange(image.len, UserBase, @intFromPtr(pages), sv32.PageFlags.Rxu, page_alloc);
+    try page_table.mapRange(image.len, UserBase, @intFromPtr(pages), sv32.PageFlags.Rwxu, page_alloc);
 
     self.* = Self{
         .pid = pid,
