@@ -152,5 +152,4 @@ export fn handle_trap(f: *TrapFrame) void {
     } else {
         lib.panic("unexpected trap scause={x}, stval={x}, sepc={x}\n", .{ scause, stval, user_pc }, @src());
     }
-
 }

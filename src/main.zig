@@ -4,7 +4,7 @@ const std = @import("std");
 const processes = @import("processes.zig");
 const Process = @import("Process.zig");
 
-pub const PageSize = riscv.PageSize;
+const PageSize = riscv.PageSize;
 
 pub const KernelBase = @extern([*]u8, .{ .name = "__kernel_base" });
 pub const Bss = @extern([*]u8, .{ .name = "__bss" });

@@ -2,7 +2,7 @@ const std = @import("std");
 const riscv = @import("riscv.zig");
 const processes = @import("processes.zig");
 
-const PageSize = riscv.PageSize;
+pub const PageSize = riscv.PageSize;
 
 // Allocation
 

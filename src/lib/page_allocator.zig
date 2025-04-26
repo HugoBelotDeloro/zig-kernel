@@ -16,7 +16,7 @@ const Allocator = mem.Allocator;
 const Alignment = mem.Alignment;
 const panic = lib.panic;
 
-pub const PageSize = 4096;
+const PageSize = lib.PageSize;
 const Page = [PageSize]u8;
 
 var next_page: [*]Page = @ptrCast(root.FreeRamStart);
