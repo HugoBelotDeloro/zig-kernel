@@ -90,14 +90,21 @@ const PhysAddr = packed struct(u32) {
     }
 };
 
+/// A PTE is a leaf is r, w and x are clear.
+/// If it is non-leaf then u, a and d must be clear.
 pub const PageFlags = packed struct(u9) {
     /// Readable page
     r: bool = false,
-    /// Writable page
+    /// Writable page.
+    /// If set, the page must also be marked as readable.
     w: bool = false,
     /// Executable page
     x: bool = false,
     /// Accessible to user mode
+    /// If set, the page can only be accessed for reading and writing by the supervisor if the SUM
+    /// bit of sstatus is set.
+    /// Regardless of the value of this field or of sstatus, S-mode can never execute code on a page
+    /// where this bit is set.
     u: bool = false,
     /// Globally mapped (exists in all address spaces)
     g: bool = false,
@@ -108,18 +115,39 @@ pub const PageFlags = packed struct(u9) {
     /// Reserved for use by the supervisor
     rsw: u2 = 0,
 
-    pub const Rwx = PageFlags{
-        .r = true,
-        .w = true,
-        .x = true,
-    };
-
-    pub const Rwxu = PageFlags{
-        .r = true,
-        .w = true,
-        .x = true,
-        .u = true,
-    };
+    pub fn from(comptime s: []const u8) PageFlags {
+        var flags = PageFlags{};
+        comptime var i = 0;
+        if (i < s.len and s[i] == 'r') {
+            flags.r = true;
+            i += 1;
+        }
+        if (i < s.len and s[i] == 'w') {
+            flags.w = true;
+            i += 1;
+        }
+        if (i < s.len and s[i] == 'x') {
+            flags.x = true;
+            i += 1;
+        }
+        if (i < s.len and s[i] == 'u') {
+            flags.u = true;
+            i += 1;
+        }
+        if (i < s.len and s[i] == 'g') {
+            flags.g = true;
+            i += 1;
+        }
+        if (i < s.len and s[i] == 'a') {
+            flags.a = true;
+            i += 1;
+        }
+        if (i < s.len and s[i] == 'd') {
+            flags.d = true;
+            i += 1;
+        }
+        return flags;
+    }
 
     pub fn format(
         self: PageFlags,

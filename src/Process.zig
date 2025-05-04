@@ -48,12 +48,12 @@ pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allo
     // Map kernel pages
     const size_to_map = root.FreeRamEnd - root.KernelBase;
     const base_address: u32 = @intFromPtr(root.KernelBase);
-    try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.Rwx, page_alloc);
+    try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.from("rwx"), page_alloc);
 
     // Map user pages
     const pages = try lib.allocPagesFromLen(image.len);
     @memcpy(pages, image);
-    try page_table.mapRange(image.len, UserBase, @intFromPtr(pages), sv32.PageFlags.Rwxu, page_alloc);
+    try page_table.mapRange(image.len, UserBase, @intFromPtr(pages), sv32.PageFlags.from("rwxu"), page_alloc);
 
     self.* = Self{
         .pid = pid,
