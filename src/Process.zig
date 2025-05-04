@@ -1,12 +1,11 @@
 const std = @import("std");
-const root = @import("root");
-const lib = root.lib;
-const sv32 = root.riscv.sv32;
+const lib = @import("lib.zig");
+const sv32 = @import("riscv/sv32.zig");
 
 pub const UserBase: usize = 0x1000000;
 
 pub const StackSize = 8192;
-const PageSize = root.PageSize;
+const PageSize = lib.PageSize;
 
 const log = std.log.scoped(.process);
 
@@ -46,8 +45,8 @@ pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allo
     log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
     // Map kernel pages
-    const size_to_map = root.FreeRamEnd - root.KernelBase;
-    const base_address: u32 = @intFromPtr(root.KernelBase);
+    const size_to_map = lib.segmentation.FreeRamEnd - lib.segmentation.Text;
+    const base_address: u32 = @intFromPtr(lib.segmentation.Text);
     try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.from("rwx"), page_alloc);
 
     // Map user pages

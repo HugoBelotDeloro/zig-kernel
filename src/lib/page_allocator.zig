@@ -19,8 +19,8 @@ const panic = lib.panic;
 const PageSize = lib.PageSize;
 const Page = [PageSize]u8;
 
-var next_page: [*]Page = @ptrCast(root.FreeRamStart);
-const PageEnd: [*]Page = @ptrCast(root.FreeRamEnd);
+var next_page: [*]Page = @ptrCast(lib.segmentation.FreeRam);
+const PageEnd: [*]Page = @ptrCast(lib.segmentation.FreeRamEnd);
 var free_list_start: ?*FreePageListEntry = null;
 
 const log = std.log.scoped(.page_allocator);

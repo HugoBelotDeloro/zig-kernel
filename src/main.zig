@@ -6,13 +6,6 @@ const Process = @import("Process.zig");
 
 const PageSize = riscv.PageSize;
 
-pub const KernelBase = @extern([*]u8, .{ .name = "__kernel_base" });
-pub const Bss = @extern([*]u8, .{ .name = "__bss" });
-pub const BssEnd = @extern([*]u8, .{ .name = "__bss_end" });
-pub const StackTop = @extern([*]u8, .{ .name = "__stack_top" });
-pub const FreeRamStart = @extern([*]u8, .{ .name = "__free_ram" });
-pub const FreeRamEnd = @extern([*]u8, .{ .name = "__free_ram_end" });
-
 const shell = @embedFile("shell.bin");
 
 pub const std_options = std.Options{
@@ -28,12 +21,12 @@ export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
         \\mv sp, %[stack_top]
         \\j kernel_setup
         :
-        : [stack_top] "r" (StackTop),
+        : [stack_top] "r" (lib.segmentation.StackTop),
     );
 }
 
 export fn kernel_setup() noreturn {
-    @memset(Bss[0 .. BssEnd - Bss], 0);
+    @memset(lib.segmentation.Bss[0 .. lib.segmentation.BssEnd - lib.segmentation.Bss], 0);
 
     riscv.setTrapHandler();
 

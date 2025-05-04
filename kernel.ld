@@ -2,28 +2,34 @@ ENTRY(boot)
 
 SECTIONS {
     . = 0x80200000;
-    __kernel_base = .;
 
-    .text :{
+    .text : ALIGN(4096) {
+        __text = .;
         KEEP(*(.text.boot));
         *(.text .text.*);
+        __text_end = .;
     }
 
-    .rodata : ALIGN(4) {
+    .rodata : ALIGN(4096) {
+        __rodata = .;
         *(.rodata .rodata.*);
+        __rodata_end = .;
     }
 
-    .data : ALIGN(4) {
+    .data : ALIGN(4096) {
+        __data = .;
         *(.data .data.*);
+        __data_end = .;
     }
 
-    .bss : ALIGN(4) {
+    .bss : ALIGN(4096) {
         __bss = .;
         *(.bss .bss.* .sbss .sbss.*);
         __bss_end = .;
     }
 
-    . = ALIGN(4);
+    . = ALIGN(4096);
+    __stack_bottom = .;
     . += 128 * 1024; /* 128KB */
     __stack_top = .;
 

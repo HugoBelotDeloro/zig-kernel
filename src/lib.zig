@@ -2,6 +2,8 @@ const std = @import("std");
 const riscv = @import("riscv.zig");
 const processes = @import("processes.zig");
 
+pub const segmentation = @import("lib/segmentation.zig");
+
 pub const PageSize = riscv.PageSize;
 
 // Allocation
