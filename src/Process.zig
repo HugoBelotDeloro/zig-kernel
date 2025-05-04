@@ -45,14 +45,14 @@ pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allo
     log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
     // Map kernel pages
-    const size_to_map = lib.segmentation.FreeRamEnd - lib.segmentation.Text;
-    const base_address: u32 = @intFromPtr(lib.segmentation.Text);
-    try page_table.mapRange(size_to_map, base_address, base_address, sv32.PageFlags.from("rwx"), page_alloc);
+    const kernel_mem = lib.segmentation.Text[0..(lib.segmentation.FreeRamEnd - lib.segmentation.Text)];
+    const base_address: u32 = @intFromPtr(kernel_mem.ptr);
+    try page_table.mapRange(kernel_mem, base_address, "rwx", page_alloc);
 
     // Map user pages
     const pages = try lib.allocPagesFromLen(image.len);
     @memcpy(pages, image);
-    try page_table.mapRange(image.len, UserBase, @intFromPtr(pages), sv32.PageFlags.from("rwxu"), page_alloc);
+    try page_table.mapRange(pages, UserBase, "rwxu", page_alloc);
 
     self.* = Self{
         .pid = pid,

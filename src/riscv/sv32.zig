@@ -146,6 +146,8 @@ pub const PageFlags = packed struct(u9) {
             flags.d = true;
             i += 1;
         }
+
+        if (i != s.len) @compileError("Some flags are unknown or in the wrong order: " ++ s);
         return flags;
     }
 
@@ -244,11 +246,11 @@ pub const PageTable = struct {
         return self.mapPageInner(VirtAddr.from(va), PhysAddr.from(pa), flags, page_alloc);
     }
 
-    pub fn mapRange(table_1: Ptr, len: usize, base_va: u32, base_pa: u32, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
+    pub fn mapRange(table_1: Ptr, mem: []u8, base_va: u32, comptime flags: []const u8, page_alloc: std.mem.Allocator) !void {
         var i: usize = 0;
-        log.debug("mapping {d} bytes for table {*}", .{ len, table_1 });
-        while (i < len) : (i += PageSize) {
-            try table_1.mapPage(base_va + i, base_pa + i, flags, page_alloc);
+        log.debug("mapping {d} bytes for table {*}", .{ mem.len, table_1 });
+        while (i < mem.len) : (i += PageSize) {
+            try table_1.mapPage(base_va + i, @intFromPtr(&mem[i]), PageFlags.from(flags), page_alloc);
         }
     }
 };

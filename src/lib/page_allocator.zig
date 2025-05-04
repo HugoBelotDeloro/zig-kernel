@@ -66,9 +66,9 @@ pub fn freePages(pages: [*]u8, count: usize) void {
     }
 }
 
-pub fn allocPagesFromLen(len: usize) std.mem.Allocator.Error![*]u8 {
+pub fn allocPagesFromLen(len: usize) std.mem.Allocator.Error![]u8 {
     const count = lenToPageCount(len);
-    return allocPages(count);
+    return (try allocPages(count))[0..len];
 }
 
 pub fn freePagesFromLen(pages: [*]u8, len: usize) void {
