@@ -221,6 +221,12 @@ pub const PageTable = struct {
         return &page_table.ptr[0];
     }
 
+    pub fn clone(self: *PageTable, page_alloc: std.mem.Allocator) !*align(PageSize) PageTable {
+        const page_table = try PageTable.create(page_alloc);
+        @memcpy(&page_table.entries, &self.entries);
+        return page_table;
+    }
+
     fn mapPageInner(table_1: Ptr, va: VirtAddr, pa: PhysAddr, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
         if (!isAligned(va.to(), PageSize))
             lib.panic("unaligned virtual address {x}", .{va.to()}, @src());

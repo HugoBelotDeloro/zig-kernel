@@ -59,8 +59,8 @@ pub fn kmain() !void {
     const log = std.log.scoped(.kernel);
     log.info("kernel started", .{});
 
-    const idle_process = try processes.createProcess(&.{}, gpa);
-    processes.current = idle_process;
+    try processes.createIdleProcess(gpa);
+    processes.current = processes.Idle;
 
     log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
 

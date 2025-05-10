@@ -40,14 +40,22 @@ saved_registers: SavedRegisters,
 page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8,
 
-pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
-    const page_table = try sv32.PageTable.create(page_alloc);
-    log.debug("Created page table {*} for process {d}", .{ page_table, pid });
+pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
+    self.* = Self{
+        .pid = 0,
+        .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc),
+        .sp = &self.stack[self.stack.len - 1],
+        .stack = undefined,
+        .state = .runnable,
+        .saved_registers = SavedRegisters{
+            .ra = @intFromPtr(&idle),
+        }
+    };
+}
 
-    // Map kernel pages
-    const kernel_mem = lib.segmentation.Text[0..(lib.segmentation.FreeRamEnd - lib.segmentation.Text)];
-    const base_address: u32 = @intFromPtr(kernel_mem.ptr);
-    try page_table.mapRange(kernel_mem, base_address, "rwx", page_alloc);
+pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
+    const page_table = try @import("processes.zig").Idle.page_table.clone(page_alloc);
+    log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
     // Map user pages
     const pages = try lib.allocPagesFromLen(image.len);
@@ -78,6 +86,10 @@ fn userEntry() callconv(.naked) noreturn {
         : [sepc] "r" (UserBase),
           [sstatus] "r" (sstatus),
     );
+}
+
+fn idle() callconv(.Naked) noreturn {
+    while (true) asm volatile("wfi");
 }
 
 pub fn saveContext(self: *Self) void {

@@ -15,6 +15,11 @@ var Procs: [ProcsMax]Process = .{Process{
 }} ** ProcsMax;
 
 pub var current: *Process = undefined;
+pub const Idle: *Process = &Procs[0];
+
+pub fn createIdleProcess(page_alloc: std.mem.Allocator) !void {
+    try Process.initIdle(Idle, page_alloc);
+}
 
 pub fn createProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
@@ -52,8 +57,6 @@ pub fn yield() void {
 
 fn switchContextTo(from: *Process, to: *Process) void {
     log.info("switching from process #{d} to #{d}", .{ from.pid, to.pid });
-    const Satp = @import("root").riscv.sv32.Satp;
-    Satp.fromPageTable(to.page_table).set();
     asm volatile ("csrw sscratch, %[sscratch]"
         :
         : [sscratch] "r" (@as([*]u8, @ptrCast(&to.stack)) + to.stack.len),
@@ -62,6 +65,8 @@ fn switchContextTo(from: *Process, to: *Process) void {
     current = to;
 
     from.saveContext();
+    const Satp = @import("root").riscv.sv32.Satp;
+    Satp.fromPageTable(to.page_table).set();
 
     asm volatile (
     // Switch the stack pointer.
