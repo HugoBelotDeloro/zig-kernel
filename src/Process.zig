@@ -35,22 +35,15 @@ const SavedRegisters = struct {
 
 pid: usize,
 state: State = .unused,
-sp: *u8,
+sp: [*]u8,
 saved_registers: SavedRegisters,
 page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8,
 
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
-    self.* = Self{
-        .pid = 0,
-        .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc),
-        .sp = &self.stack[self.stack.len - 1],
-        .stack = undefined,
-        .state = .runnable,
-        .saved_registers = SavedRegisters{
-            .ra = @intFromPtr(&idle),
-        }
-    };
+    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable, .saved_registers = SavedRegisters{
+        .ra = @intFromPtr(&idle),
+    } };
 }
 
 pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
@@ -64,7 +57,7 @@ pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allo
 
     self.* = Self{
         .pid = pid,
-        .sp = &self.stack[self.stack.len - 1],
+        .sp = self.stack[self.stack.len - 1 ..],
         .state = .runnable,
         .saved_registers = SavedRegisters{
             .ra = @intFromPtr(&userEntry),
@@ -89,7 +82,7 @@ fn userEntry() callconv(.naked) noreturn {
 }
 
 fn idle() callconv(.Naked) noreturn {
-    while (true) asm volatile("wfi");
+    while (true) asm volatile ("wfi");
 }
 
 pub fn saveContext(self: *Self) void {
