@@ -1,7 +1,7 @@
 pub const csr = @import("riscv/csr.zig");
 pub const sv32 = @import("riscv/sv32.zig");
 pub const common = @import("common");
-pub const opensbi = @import("riscv/opensbi.zig");
+pub const sbi = @import("riscv/sbi.zig");
 pub const timer = @import("riscv/timer.zig");
 
 const lib = @import("lib.zig");
@@ -57,6 +57,7 @@ pub const TrapFrame = extern struct {
 
 export fn kernel_entry() align(4) callconv(.Naked) void {
     asm volatile (
+    // Swap the stack pointer with the one stored in sscratch
         \\csrrw sp, sscratch, sp
         \\addi sp, sp, -4 * 31
         \\sw ra,  4 * 0(sp)

@@ -27,7 +27,7 @@ const WriteError = error{};
 fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
     _ = context;
     for (bytes) |c| {
-        riscv.opensbi.putChar(c);
+        riscv.sbi.putChar(c);
     }
     return bytes.len;
 }

@@ -59,6 +59,27 @@ pub fn kmain() !void {
     const log = std.log.scoped(.kernel);
     log.info("kernel started", .{});
 
+    log.info("SBI version {d} ({d}/{s} version {d})", .{
+        riscv.sbi.base.getSpecVersion(),
+        riscv.sbi.base.getImplementationId(),
+        riscv.sbi.base.getImplementationName(),
+        riscv.sbi.base.getImplementationVersion()
+    });
+
+    var enabled_extensions = std.enums.EnumArray(
+    riscv.sbi.Extensions,
+    bool,
+    ).initFill(false);
+
+    for (std.enums.values(riscv.sbi.Extensions)) |ext| {
+        if (riscv.sbi.base.probeExtension(@intFromEnum(ext))) {
+            enabled_extensions.set(ext, true);
+            log.info("Extension enabled: {s}", .{riscv.sbi.getExtensionName(@intFromEnum(ext))});
+        } else {
+            log.info("Extension disabled: {s}", .{riscv.sbi.getExtensionName(@intFromEnum(ext))});
+        }
+    }
+
     try processes.createIdleProcess(gpa);
     processes.current = processes.Idle;
 

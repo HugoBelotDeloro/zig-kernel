@@ -2,8 +2,8 @@ const std = @import("std");
 const riscv = @import("riscv.zig");
 const TrapFrame = riscv.TrapFrame;
 const Syscall = @import("common").Syscall;
-const putChar = riscv.opensbi.putChar;
-const getChar = riscv.opensbi.getChar;
+const putChar = riscv.sbi.putChar;
+const getChar = riscv.sbi.getChar;
 const lib = @import("lib.zig");
 const processes = @import("processes.zig");
 
