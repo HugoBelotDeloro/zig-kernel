@@ -1,23 +1,22 @@
 pub const base = @import("sbi/base.zig");
+pub const time = @import("sbi/time.zig");
+
+pub const log = @import("std").log.scoped(.sbi);
 
 pub fn putChar(c: u8) void {
-    _ = sbiCall6(c, 0, 0, 0, 0, 0, 0, 1);
+    _ = sbiCall6(c, 0, 0, 0, 0, 0, 0, .ConsolePutchar);
 }
 
 pub fn getChar() isize {
-    return @bitCast(sbiCall6(0, 0, 0, 0, 0, 0, 0, 2).err);
+    return @bitCast(sbiCall6(0, 0, 0, 0, 0, 0, 0, .ConsoleGetchar).err);
 }
 
-pub fn setTimer(time: usize) void {
-    _ = sbiCall6(time, 0, 0, 0, 0, 0, 0, 0x5449_4D45);
-}
-
-pub const SbiRet = struct {
-    err: usize,
+pub const SbiRet = packed struct {
+    err: isize,
     value: usize,
 };
 
-pub const Extensions = enum(usize) {
+pub const Extension = enum(usize) {
     SetTimer = 0x00,
     ConsolePutchar = 0x01,
     ConsoleGetchar = 0x02,
@@ -45,7 +44,7 @@ pub const Extensions = enum(usize) {
     Time = 0x54494D45,
 };
 
-const ExtensionNameType = @import("std").EnumArray(Extensions, []const u8);
+const ExtensionNameType = @import("std").EnumArray(Extension, []const u8);
 const ExtensionNames = ExtensionNameType.init(.{
     .SetTimer = "Set Timer",
     .ConsolePutchar = "Console Putchar",
@@ -75,13 +74,12 @@ const ExtensionNames = ExtensionNameType.init(.{
 });
 
 pub fn getExtensionName(eid: usize) []const u8 {
-    const e = @import("std").meta.intToEnum(Extensions, eid) catch return "Unknown";
+    const e = @import("std").meta.intToEnum(Extension, eid) catch return "Unknown";
     return ExtensionNames.get(e);
 }
 
-
-pub fn sbiCall0(fid: usize, eid: usize) SbiRet {
-    var err: usize = undefined;
+pub fn sbiCall0(fid: usize, eid: Extension) SbiRet {
+    var err: isize = undefined;
     var val: usize = undefined;
 
     asm volatile ("ecall"
@@ -91,11 +89,12 @@ pub fn sbiCall0(fid: usize, eid: usize) SbiRet {
           [arg7] "{a7}" (eid),
         : "memory"
     );
+    if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };
 }
 
-pub fn sbiCall1(arg0: usize, fid: usize, eid: usize) SbiRet {
-    var err: usize = undefined;
+pub fn sbiCall1(arg0: usize, fid: usize, eid: Extension) SbiRet {
+    var err: isize = undefined;
     var val: usize = undefined;
 
     asm volatile ("ecall"
@@ -106,11 +105,29 @@ pub fn sbiCall1(arg0: usize, fid: usize, eid: usize) SbiRet {
           [arg7] "{a7}" (eid),
         : "memory"
     );
+    if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };
 }
 
-pub fn sbiCall6(arg0: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize, arg5: usize, fid: usize, eid: usize) SbiRet {
-    var err: usize = undefined;
+pub fn sbiCall2(arg0: usize, arg1: usize, fid: usize, eid: Extension) SbiRet {
+    var err: isize = undefined;
+    var val: usize = undefined;
+
+    asm volatile ("ecall"
+        : [err] "={a0}" (err),
+          [val] "={a1}" (val),
+        : [arg0] "{a0}" (arg0),
+          [arg1] "{a1}" (arg1),
+          [arg6] "{a6}" (fid),
+          [arg7] "{a7}" (eid),
+        : "memory"
+    );
+    if (err != 0) log.err("SBI call: {d}", .{err});
+    return SbiRet{ .err = err, .value = val };
+}
+
+pub fn sbiCall6(arg0: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize, arg5: usize, fid: usize, eid: Extension) SbiRet {
+    var err: isize = undefined;
     var val: usize = undefined;
 
     asm volatile ("ecall"
@@ -126,5 +143,6 @@ pub fn sbiCall6(arg0: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize,
           [arg7] "{a7}" (eid),
         : "memory"
     );
+    if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };
 }

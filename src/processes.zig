@@ -21,7 +21,7 @@ pub fn createIdleProcess(page_alloc: std.mem.Allocator) !void {
     try Process.initIdle(Idle, page_alloc);
 }
 
-pub fn createProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
+pub fn createKernelProcess(entry: *const fn () noreturn, pa: std.mem.Allocator) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
         if (process.state == .unused) {
             break id;
@@ -30,7 +30,22 @@ pub fn createProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
 
     var proc = &Procs[proc_id];
 
-    try proc.init(proc_id, image, pa);
+    try proc.initKernel(proc_id, entry, pa);
+    log.info("Created {}", .{proc});
+
+    return proc;
+}
+
+pub fn createUserProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
+    const proc_id = for (&Procs, 0..) |*process, id| {
+        if (process.state == .unused) {
+            break id;
+        }
+    } else return error.NoProcessSlot;
+
+    var proc = &Procs[proc_id];
+
+    try proc.initUser(proc_id, image, pa);
     log.info("Created {}", .{proc});
 
     return proc;
@@ -45,7 +60,7 @@ pub fn yield() void {
     const next = &Procs[i];
 
     // Switch to idle
-    if (next.state != .runnable) switchContextTo(current, &Procs[0]);
+    if (next.state != .runnable) switchContextTo(current, Idle);
 
     if (next == current) {
         log.debug("process #{d} keeps running", .{current.pid});

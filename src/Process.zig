@@ -46,7 +46,38 @@ pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
     } };
 }
 
-pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
+pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn, page_alloc: std.mem.Allocator) !void {
+    const page_table = try @import("processes.zig").Idle.page_table.clone(page_alloc);
+    log.debug("Created page table {*} for process {d}", .{ page_table, pid });
+
+    self.* = Self{
+        .pid = pid,
+        .sp = self.stack[self.stack.len - 1 ..],
+        .state = .runnable,
+        .saved_registers = SavedRegisters{
+            .ra = @intFromPtr(&kernelEntry),
+            .s3 = @intFromPtr(entry),
+        },
+        .page_table = page_table,
+        .stack = undefined,
+    };
+}
+
+fn kernelEntry() callconv(.naked) noreturn {
+    const sstatus = @import("riscv.zig").Csr.Sstatus{
+        .sie = true,
+        .spp = .supervisor,
+    };
+    asm volatile (
+        \\csrw sepc, s3
+        \\csrw sstatus, %[sstatus]
+        \\sret
+        :
+        : [sstatus] "r" (sstatus),
+    );
+}
+
+pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
     const page_table = try @import("processes.zig").Idle.page_table.clone(page_alloc);
     log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
@@ -68,7 +99,7 @@ pub fn init(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allo
 }
 
 fn userEntry() callconv(.naked) noreturn {
-    const sstatus = @import("riscv.zig").csr.Sstatus{
+    const sstatus = @import("riscv.zig").Csr.Sstatus{
         .spie = true,
     };
     asm volatile (

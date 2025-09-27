@@ -13,7 +13,7 @@ pub const std_options = std.Options{
     .page_size_min = PageSize,
     .logFn = lib.logFn,
     .log_level = .info,
-    .log_scope_levels = &.{ .{ .scope = .sv32, .level = .info }, .{ .scope = .processes, .level = .info } },
+    .log_scope_levels = &.{},
 };
 
 export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
@@ -52,6 +52,20 @@ pub const os = struct {
     };
 };
 
+const Million: usize = 1_000_000;
+const TimerDelay = 30 * Million;
+
+fn loop() noreturn {
+    var sstatus = riscv.Csr.read(.sstatus);
+    sstatus.sie = true;
+    riscv.Csr.write(sstatus);
+    while (true) {
+        std.log.info("On process {d}", .{processes.current.pid});
+        std.log.info("sstatus {}", .{riscv.Csr.read(.sstatus)});
+        asm volatile ("wfi");
+    }
+}
+
 pub fn kmain() !void {
     var gpa_instance = KAllocator{ .backing_allocator = PageAllocator };
     const gpa = gpa_instance.allocator();
@@ -59,19 +73,14 @@ pub fn kmain() !void {
     const log = std.log.scoped(.kernel);
     log.info("kernel started", .{});
 
-    log.info("SBI version {d} ({d}/{s} version {d})", .{
-        riscv.sbi.base.getSpecVersion(),
-        riscv.sbi.base.getImplementationId(),
-        riscv.sbi.base.getImplementationName(),
-        riscv.sbi.base.getImplementationVersion()
-    });
+    log.info("SBI version {d} ({d}/{s} version {d})", .{ riscv.sbi.base.getSpecVersion(), riscv.sbi.base.getImplementationId(), riscv.sbi.base.getImplementationName(), riscv.sbi.base.getImplementationVersion() });
 
     var enabled_extensions = std.enums.EnumArray(
-    riscv.sbi.Extensions,
-    bool,
+        riscv.sbi.Extension,
+        bool,
     ).initFill(false);
 
-    for (std.enums.values(riscv.sbi.Extensions)) |ext| {
+    for (std.enums.values(riscv.sbi.Extension)) |ext| {
         if (riscv.sbi.base.probeExtension(@intFromEnum(ext))) {
             enabled_extensions.set(ext, true);
             log.info("Extension enabled: {s}", .{riscv.sbi.getExtensionName(@intFromEnum(ext))});
@@ -83,26 +92,29 @@ pub fn kmain() !void {
     try processes.createIdleProcess(gpa);
     processes.current = processes.Idle;
 
-    log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
-
-    _ = try processes.createProcess(shell, gpa);
+    // log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
+    //_ = try processes.createUserProcess(shell, gpa);
+    _ = try processes.createKernelProcess(&loop, gpa);
+    //_ = try processes.createKernelProcess(&loop, gpa);
 
     // Enable interrupts at first switch to U-mode
-    var sstatus: riscv.csr.Sstatus = @bitCast(riscv.csr.readCsr(.sstatus));
+    var sstatus: riscv.Csr.Sstatus = riscv.Csr.read(.sstatus);
     sstatus.spie = true;
-    riscv.csr.writeCsr(.sstatus, @bitCast(sstatus));
+    sstatus.sie = true;
+    riscv.Csr.write(sstatus);
 
     // Enable all types of interrupts
-    const sie = riscv.csr.Sie{
+    const sie = riscv.Csr.Sie{
         .software = true,
         .timer = true,
         .external = true,
     };
-    riscv.csr.writeCsr(.sie, @bitCast(sie));
+    riscv.Csr.write(sie);
+    log.warn("sie: {}", .{riscv.Csr.read(.sie)});
 
     // Set initial timer
-    //const i = riscv.csr.readCsr(.time);
-    //riscv.opensbi.setTimer(i + 10000000);
+    const rdtime = riscv.readTime();
+    riscv.sbi.time.setTimer(rdtime + TimerDelay);
 
     // What I want to do now:
     // - Have an idle process which can be switched to, has low priority (only switched to if no

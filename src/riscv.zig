@@ -1,4 +1,4 @@
-pub const csr = @import("riscv/csr.zig");
+pub const Csr = @import("riscv/csr.zig").Csr;
 pub const sv32 = @import("riscv/sv32.zig");
 pub const common = @import("common");
 pub const sbi = @import("riscv/sbi.zig");
@@ -11,13 +11,11 @@ const log = std.log.scoped(.trap);
 
 pub const PageSize = 4096;
 
-const writeCsr = csr.writeCsr;
-const readCsr = csr.readCsr;
 const handleSyscall = @import("syscall.zig").handleSyscall;
 
 pub fn setTrapHandler() void {
     const entry_addr: usize = @intFromPtr(&kernel_entry);
-    writeCsr(.stvec, entry_addr);
+    Csr.writeReg(.stvec, entry_addr);
     log.info("set trap handler to {x}", .{entry_addr});
 }
 
@@ -136,21 +134,34 @@ export fn kernel_entry() align(4) callconv(.Naked) void {
 }
 
 export fn handle_trap(f: *TrapFrame) void {
-    const scause: csr.Scause = @bitCast(readCsr(.scause));
-    const stval: usize = readCsr(.stval);
-    const user_pc: usize = readCsr(.sepc);
+    const scause: Csr.Scause = Csr.read(.scause);
+    const stval: usize = Csr.read(.stval);
+    const user_pc: usize = Csr.read(.sepc);
 
     if (scause.caused_by == .exception and scause.code == 8) {
         // Reenable interrupts
-        var sstatus: csr.Sstatus = @bitCast(csr.readCsr(.sstatus));
+        var sstatus: Csr.Sstatus = @bitCast(Csr.read(.sstatus));
         sstatus.sie = true;
-        csr.writeCsr(.sstatus, @bitCast(sstatus));
+        Csr.write(sstatus);
 
         handleSyscall(f);
-        writeCsr(.sepc, user_pc + 4);
+        Csr.writeReg(.sepc, user_pc + 4);
     } else if (scause.caused_by == .interrupt and scause.code == 5) {
         timer.handleTimer();
     } else {
         lib.panic("unexpected trap scause={x}, stval={x}, sepc={x}\n", .{ scause, stval, user_pc }, @src());
     }
+}
+
+pub fn readTime() u64 {
+    const high_1: u64 = @intCast(asm volatile ("rdtimeh %[ret]"
+        : [ret] "=r" (-> usize),
+    ));
+    const low = asm volatile ("rdtime %[ret]"
+        : [ret] "=r" (-> usize),
+    );
+    const high_2: u64 = @intCast(asm volatile ("rdtimeh %[ret]"
+        : [ret] "=r" (-> usize),
+    ));
+    if (high_1 == high_2) return (high_1 << 32) + low else return readTime();
 }

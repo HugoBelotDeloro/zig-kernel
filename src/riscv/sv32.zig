@@ -27,7 +27,7 @@ pub const Satp = packed struct(u32) {
 
     pub fn set(self: Satp) void {
         asm volatile ("sfence.vma");
-        riscv.csr.writeCsr(.satp, @bitCast(self));
+        riscv.Csr.write(self);
         asm volatile ("sfence.vma");
     }
 
