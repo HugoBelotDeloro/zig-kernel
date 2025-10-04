@@ -1,5 +1,5 @@
 const std = @import("std");
-const riscv = @import("riscv.zig");
+const riscv = @import("riscv");
 const TrapFrame = riscv.TrapFrame;
 const Syscall = @import("common").Syscall;
 const putChar = riscv.sbi.putChar;

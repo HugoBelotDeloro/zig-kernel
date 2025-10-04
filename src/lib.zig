@@ -1,5 +1,5 @@
 const std = @import("std");
-const riscv = @import("riscv.zig");
+const riscv = @import("riscv");
 const processes = @import("processes.zig");
 
 pub const segmentation = @import("lib/segmentation.zig");

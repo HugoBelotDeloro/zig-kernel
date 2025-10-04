@@ -1,10 +1,12 @@
 pub const lib = @import("lib.zig");
-pub const riscv = @import("riscv.zig");
+pub const libriscv = @import("riscv");
 const std = @import("std");
 const processes = @import("processes.zig");
 const Process = @import("Process.zig");
 
-const PageSize = riscv.PageSize;
+pub const riscv = @import("riscv.zig");
+
+const PageSize = libriscv.PageSize;
 
 const shell = @embedFile("shell.bin");
 
@@ -28,7 +30,7 @@ export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
 export fn kernel_setup() noreturn {
     @memset(lib.segmentation.Bss[0 .. lib.segmentation.BssEnd - lib.segmentation.Bss], 0);
 
-    riscv.setTrapHandler();
+    libriscv.setTrapHandler();
 
     kmain() catch |err| {
         lib.serialWriter.print("ERROR: {!}\n", .{err}) catch {};
@@ -56,12 +58,12 @@ const Million: usize = 1_000_000;
 const TimerDelay = 30 * Million;
 
 fn loop() noreturn {
-    var sstatus = riscv.Csr.read(.sstatus);
+    var sstatus = libriscv.Csr.read(.sstatus);
     sstatus.sie = true;
-    riscv.Csr.write(sstatus);
+    libriscv.Csr.write(sstatus);
     while (true) {
         std.log.info("On process {d}", .{processes.current.pid});
-        std.log.info("sstatus {}", .{riscv.Csr.read(.sstatus)});
+        std.log.info("sstatus {}", .{libriscv.Csr.read(.sstatus)});
         asm volatile ("wfi");
     }
 }
@@ -71,21 +73,15 @@ pub fn kmain() !void {
     const gpa = gpa_instance.allocator();
 
     const log = std.log.scoped(.kernel);
-    log.info("kernel started", .{});
+    log.debug("kernel started", .{});
 
-    log.info("SBI version {d} ({d}/{s} version {d})", .{ riscv.sbi.base.getSpecVersion(), riscv.sbi.base.getImplementationId(), riscv.sbi.base.getImplementationName(), riscv.sbi.base.getImplementationVersion() });
+    log.info("SBI version {d} ({d}/{s} version {d})", .{ libriscv.sbi.base.getSpecVersion(), libriscv.sbi.base.getImplementationId(), libriscv.sbi.base.getImplementationName(), libriscv.sbi.base.getImplementationVersion() });
 
-    var enabled_extensions = std.enums.EnumArray(
-        riscv.sbi.Extension,
-        bool,
-    ).initFill(false);
-
-    for (std.enums.values(riscv.sbi.Extension)) |ext| {
-        if (riscv.sbi.base.probeExtension(@intFromEnum(ext))) {
-            enabled_extensions.set(ext, true);
-            log.info("Extension enabled: {s}", .{riscv.sbi.getExtensionName(@intFromEnum(ext))});
+    for (std.enums.values(libriscv.sbi.Extension)) |ext| {
+        if (libriscv.sbi.base.probeExtension(ext)) {
+            log.info("Extension enabled: {s}", .{ext.name().?});
         } else {
-            log.info("Extension disabled: {s}", .{riscv.sbi.getExtensionName(@intFromEnum(ext))});
+            log.info("Extension disabled: {s}", .{ext.name().?});
         }
     }
 
@@ -95,26 +91,26 @@ pub fn kmain() !void {
     // log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
     //_ = try processes.createUserProcess(shell, gpa);
     _ = try processes.createKernelProcess(&loop, gpa);
-    //_ = try processes.createKernelProcess(&loop, gpa);
+    _ = try processes.createKernelProcess(&loop, gpa);
 
     // Enable interrupts at first switch to U-mode
-    var sstatus: riscv.Csr.Sstatus = riscv.Csr.read(.sstatus);
+    var sstatus: libriscv.Csr.Sstatus = libriscv.Csr.read(.sstatus);
     sstatus.spie = true;
     sstatus.sie = true;
-    riscv.Csr.write(sstatus);
+    libriscv.Csr.write(sstatus);
 
     // Enable all types of interrupts
-    const sie = riscv.Csr.Sie{
+    const sie = libriscv.Csr.Sie{
         .software = true,
         .timer = true,
         .external = true,
     };
-    riscv.Csr.write(sie);
-    log.warn("sie: {}", .{riscv.Csr.read(.sie)});
+    libriscv.Csr.write(sie);
+    log.warn("sie: {}", .{libriscv.Csr.read(.sie)});
 
     // Set initial timer
-    const rdtime = riscv.readTime();
-    riscv.sbi.time.setTimer(rdtime + TimerDelay);
+    const rdtime = libriscv.readTime();
+    libriscv.sbi.time.setTimer(rdtime + TimerDelay);
 
     // What I want to do now:
     // - Have an idle process which can be switched to, has low priority (only switched to if no

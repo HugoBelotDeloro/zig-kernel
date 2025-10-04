@@ -14,6 +14,13 @@ pub fn build(b: *std.Build) void {
         .strip = false,
     });
 
+    const libriscv = b.createModule(.{
+        .root_source_file = b.path("riscv/lib.zig"),
+        .target = target,
+        .optimize = .ReleaseSmall,
+        .strip = false,
+    });
+
     const kernel = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -21,6 +28,7 @@ pub fn build(b: *std.Build) void {
         .strip = false,
     });
     kernel.addImport("common", common);
+    kernel.addImport("riscv", libriscv);
 
     const shell = b.createModule(.{
         .root_source_file = b.path("user/user.zig"),

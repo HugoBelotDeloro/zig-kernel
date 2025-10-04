@@ -1,6 +1,4 @@
-const root = @import("root");
 const std = @import("std");
-const serialWriter = root.lib.serialWriter;
 
 pub const Csr = union(enum) {
     scause: Scause,
@@ -62,12 +60,12 @@ pub const Csr = union(enum) {
 
             const bytes: u32 = @bitCast(self);
 
-            try writer.print("{x}({s} {s})", .{ bytes, @tagName(self.caused_by), switch (self.caused_by) {
+            try writer.print("{s} {s} ({x})", .{ switch (self.caused_by) {
                 .interrupt => switch (self.code) {
-                    1 => "Supervisor software interrupt",
-                    5 => "Supervisor timer interrupt",
-                    9 => "Supervisor external interrupt",
-                    0, 2...4, 6...8, 10...15 => "Reserved interrupt",
+                    1 => "Supervisor software",
+                    5 => "Supervisor timer",
+                    9 => "Supervisor external",
+                    0, 2...4, 6...8, 10...15 => "Reserved",
                     else => "Designated for platform use",
                 },
                 .exception => switch (self.code) {
@@ -84,10 +82,10 @@ pub const Csr = union(enum) {
                     12 => "Instruction page fault",
                     13 => "Load page fault",
                     15 => "Store/AMO page fault",
-                    24...31, 48...63 => "Designated for custom use",
-                    else => "Reserved exception",
+                    24...31, 48...63 => "Custom",
+                    else => "Reserved",
                 },
-            } });
+            }, @tagName(self.caused_by), bytes});
         }
     };
 

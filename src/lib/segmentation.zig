@@ -1,6 +1,6 @@
 const std = @import("std");
-const lib = @import("../lib.zig");
-const PageTable = @import("../riscv/sv32.zig").PageTable;
+const riscv = @import("riscv");
+const PageTable = riscv.sv32.PageTable;
 
 const Text = @extern([*]u8, .{ .name = "__text" });
 const TextEnd = @extern([*]u8, .{ .name = "__text_end" });
@@ -20,7 +20,7 @@ pub const StackTop = @extern([*]u8, .{ .name = "__stack_top" });
 pub const FreeRam = @extern([*]u8, .{ .name = "__free_ram" });
 pub const FreeRamEnd = @extern([*]u8, .{ .name = "__free_ram_end" });
 
-pub fn mapKernel(page_alloc: std.mem.Allocator) !*align(lib.PageSize) PageTable {
+pub fn mapKernel(page_alloc: std.mem.Allocator) !*align(riscv.PageSize) PageTable {
     var page_table = try PageTable.create(page_alloc);
     try page_table.mapRange(Text[0 .. TextEnd - Text], @intFromPtr(Text), "rx", page_alloc);
     try page_table.mapRange(Rodata[0 .. RodataEnd - Rodata], @intFromPtr(Rodata), "r", page_alloc);

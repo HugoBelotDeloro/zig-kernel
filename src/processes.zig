@@ -80,7 +80,7 @@ fn switchContextTo(from: *Process, to: *Process) void {
     current = to;
 
     from.saveContext();
-    const Satp = @import("root").riscv.sv32.Satp;
+    const Satp = @import("root").libriscv.sv32.Satp;
     Satp.fromPageTable(to.page_table).set();
 
     asm volatile (

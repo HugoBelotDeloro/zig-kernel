@@ -1,6 +1,8 @@
 const std = @import("std");
 const lib = @import("lib.zig");
-const sv32 = @import("riscv/sv32.zig");
+const riscv = @import("riscv");
+const sv32 = riscv.sv32;
+const Csr = riscv.Csr;
 
 pub const UserBase: usize = 0x1000000;
 
@@ -64,7 +66,7 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn, page_al
 }
 
 fn kernelEntry() callconv(.naked) noreturn {
-    const sstatus = @import("riscv.zig").Csr.Sstatus{
+    const sstatus = Csr.Sstatus{
         .sie = true,
         .spp = .supervisor,
     };
@@ -99,7 +101,7 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
 }
 
 fn userEntry() callconv(.naked) noreturn {
-    const sstatus = @import("riscv.zig").Csr.Sstatus{
+    const sstatus = Csr.Sstatus{
         .spie = true,
     };
     asm volatile (

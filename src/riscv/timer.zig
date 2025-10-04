@@ -1,6 +1,6 @@
 const std = @import("std");
 const lib = @import("../lib.zig");
-const riscv = @import("../riscv.zig");
+const riscv = @import("riscv");
 
 pub fn handleTimer() void {
     const time = riscv.readTime();

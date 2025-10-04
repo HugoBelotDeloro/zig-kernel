@@ -1,7 +1,9 @@
+const std = @import("std");
+
 pub const base = @import("sbi/base.zig");
 pub const time = @import("sbi/time.zig");
 
-pub const log = @import("std").log.scoped(.sbi);
+const log = std.log.scoped(.sbi);
 
 pub fn putChar(c: u8) void {
     _ = sbiCall6(c, 0, 0, 0, 0, 0, 0, .ConsolePutchar);
@@ -16,7 +18,7 @@ pub const SbiRet = packed struct {
     value: usize,
 };
 
-pub const Extension = enum(usize) {
+pub const Extension = enum(i32) {
     SetTimer = 0x00,
     ConsolePutchar = 0x01,
     ConsoleGetchar = 0x02,
@@ -42,41 +44,39 @@ pub const Extension = enum(usize) {
     Srst = 0x53525354,
     Susp = 0x53555350,
     Time = 0x54494D45,
+
+    const Names = std.EnumArray(Extension, []const u8).init(.{
+        .SetTimer = "Set Timer",
+        .ConsolePutchar = "Console Putchar",
+        .ConsoleGetchar = "Console Getchar",
+        .ClearIpi = "Clear IPI",
+        .SendIpi = "Send IPI",
+        .RemoteFenceI = "Remote FENCE.I",
+        .RemoteSfenceVma = "Remote SFENCE.VMA",
+        .RemoteSfenceVmaAsid = "Remote SFENCE.VMA with ASID",
+        .Shutdown = "System Shutdown",
+        .Base = "Base",
+        .Hsm = "Hart State Management",
+        .Pmu = "Performance Monitoring Unit",
+        .Sse = "Supervisor Software Events",
+        .Sta = "Steal-time Accounting Extension",
+        .Ipi = "IPI",
+        .Cppc = "CPPC",
+        .Dbcn = "Debug Console",
+        .Dbtr = "Debug Triggers",
+        .Fwft = "SBI Firmware Features",
+        .Mpxy = "Message Proxy",
+        .Nacl = "Nested Acceleration",
+        .Rfnc = "RFENCE",
+        .Srst = "System Reset Extension",
+        .Susp = "System Suspend",
+        .Time = "Timer",
+    });
+
+    pub fn name(self: Extension) ?[]const u8 {
+        return Names.get(self);
+    }
 };
-
-const ExtensionNameType = @import("std").EnumArray(Extension, []const u8);
-const ExtensionNames = ExtensionNameType.init(.{
-    .SetTimer = "Set Timer",
-    .ConsolePutchar = "Console Putchar",
-    .ConsoleGetchar = "Console Getchar",
-    .ClearIpi = "Clear IPI",
-    .SendIpi = "Send IPI",
-    .RemoteFenceI = "Remote FENCE.I",
-    .RemoteSfenceVma = "Remote SFENCE.VMA",
-    .RemoteSfenceVmaAsid = "Remote SFENCE.VMA with ASID",
-    .Shutdown = "System Shutdown",
-    .Base = "Base",
-    .Hsm = "Hart State Management",
-    .Pmu = "Performance Monitoring Unit",
-    .Sse = "Supervisor Software Events",
-    .Sta = "Steal-time Accounting Extension",
-    .Ipi = "IPI",
-    .Cppc = "CPPC",
-    .Dbcn = "Debug Console",
-    .Dbtr = "Debug Triggers",
-    .Fwft = "SBI Firmware Features",
-    .Mpxy = "Message Proxy",
-    .Nacl = "Nested Acceleration",
-    .Rfnc = "RFENCE",
-    .Srst = "System Reset Extension",
-    .Susp = "System Suspend",
-    .Time = "Timer",
-});
-
-pub fn getExtensionName(eid: usize) []const u8 {
-    const e = @import("std").meta.intToEnum(Extension, eid) catch return "Unknown";
-    return ExtensionNames.get(e);
-}
 
 pub fn sbiCall0(fid: usize, eid: Extension) SbiRet {
     var err: isize = undefined;

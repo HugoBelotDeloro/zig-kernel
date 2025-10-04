@@ -1,5 +1,5 @@
-const Sbi = @import("../sbi.zig");
-const sbiCall0 = Sbi.sbiCall0;
+const sbi = @import("../sbi.zig");
+const sbiCall0 = sbi.sbiCall0;
 
 pub fn getSpecVersion() usize {
     return sbiCall0(0, .Base).value;
@@ -31,8 +31,8 @@ pub fn getImplementationVersion() usize {
     return sbiCall0(2, .Base).value;
 }
 
-pub fn probeExtension(eid: usize) bool {
-    return Sbi.sbiCall1(eid, 3, .Base).value != 0;
+pub fn probeExtension(ext: sbi.Extension) bool {
+    return sbi.sbiCall1(@intCast(@intFromEnum(ext)), 3, .Base).value != 0;
 }
 
 pub fn getMachineVendorId() usize {

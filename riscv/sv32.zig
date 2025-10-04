@@ -1,9 +1,8 @@
 const std = @import("std");
-const root = @import("root");
-const lib = root.lib;
-const riscv = root.riscv;
+const riscv = @import("lib.zig");
 
 const PageSize = riscv.PageSize;
+
 const EntriesPerTable = PageSize / @sizeOf(PageTableEntry);
 
 const isAligned = std.mem.isAligned;
@@ -229,10 +228,10 @@ pub const PageTable = struct {
 
     fn mapPageInner(table_1: Ptr, va: VirtAddr, pa: PhysAddr, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
         if (!isAligned(va.to(), PageSize))
-            lib.panic("unaligned virtual address {x}", .{va.to()}, @src());
+            std.debug.panic("unaligned virtual address {x}", .{va.to()});
 
         if (!isAligned(pa.to(), PageSize))
-            lib.panic("unaligned physical address {x}", .{pa.to()}, @src());
+            std.debug.panic("unaligned physical address {x}", .{pa.to()});
 
         const entry_1 = &table_1.entries[va.vpn_1];
         if (!entry_1.v) {
