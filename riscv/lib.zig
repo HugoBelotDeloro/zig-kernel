@@ -17,7 +17,9 @@ pub fn readTime() u64 {
         const low = asm volatile ("rdtime %[ret]"
             : [ret] "=r" (-> usize),
         );
-        if (high != asm volatile("rdtimeh %[ret]" : [ret] "=r" (-> u64)))
+        if (high == asm volatile ("rdtimeh %[ret]"
+            : [ret] "=r" (-> u64),
+        ))
             return (high << 32) + low;
     }
 }

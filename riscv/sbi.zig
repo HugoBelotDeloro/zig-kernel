@@ -1,7 +1,6 @@
 const std = @import("std");
 
 pub const base = @import("sbi/base.zig");
-pub const time = @import("sbi/time.zig");
 
 const log = std.log.scoped(.sbi);
 
@@ -11,6 +10,11 @@ pub fn putChar(c: u8) void {
 
 pub fn getChar() isize {
     return @bitCast(sbiCall6(0, 0, 0, 0, 0, 0, 0, .ConsoleGetchar).err);
+}
+
+pub fn setTimer(time: u64) void {
+    log.info("Setting next timer to {d}", .{time});
+    _ = sbiCall2(@truncate(time), @intCast(time >> 32), 0, .Time);
 }
 
 pub const SbiRet = packed struct {

@@ -30,6 +30,6 @@ pub fn handleSyscall(f: *TrapFrame) void {
             lib.yield();
             unreachable;
         },
-        _ => lib.panic("Unknown syscall: {d}", .{f.a3}, @src()),
+        _ => std.debug.panic("Unknown syscall: {d}", .{f.a3}),
     }
 }

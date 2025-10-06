@@ -85,7 +85,7 @@ pub const Csr = union(enum) {
                     24...31, 48...63 => "Custom",
                     else => "Reserved",
                 },
-            }, @tagName(self.caused_by), bytes});
+            }, @tagName(self.caused_by), bytes });
         }
     };
 

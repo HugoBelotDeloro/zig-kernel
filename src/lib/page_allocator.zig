@@ -14,7 +14,6 @@ const lib = root.lib;
 const mem = std.mem;
 const Allocator = mem.Allocator;
 const Alignment = mem.Alignment;
-const panic = lib.panic;
 
 const PageSize = lib.PageSize;
 const Page = [PageSize]u8;
@@ -26,7 +25,7 @@ var free_list_start: ?*FreePageListEntry = null;
 const log = std.log.scoped(.page_allocator);
 
 fn lenToPageCount(len: usize) usize {
-    return std.math.divCeil(usize, len, PageSize) catch lib.panic("div", .{}, @src());
+    return std.math.divCeil(usize, len, PageSize) catch std.debug.panic("div", .{});
 }
 
 fn allocNewPages(count: usize) ?[*]u8 {

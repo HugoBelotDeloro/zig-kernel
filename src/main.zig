@@ -18,6 +18,13 @@ pub const std_options = std.Options{
     .log_scope_levels = &.{},
 };
 
+comptime {
+    // Required to ensure handle_trap is not ignored by lazy evaluation
+    _ = riscv.handle_trap;
+}
+
+pub const panic = std.debug.FullPanic(lib.panic);
+
 export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
     asm volatile (
         \\mv sp, %[stack_top]
@@ -36,7 +43,7 @@ export fn kernel_setup() noreturn {
         lib.serialWriter.print("ERROR: {!}\n", .{err}) catch {};
     };
 
-    lib.panic("kmain returned", .{}, @src());
+    std.debug.panic("kmain returned", .{});
 }
 
 pub const PageAllocator = lib.PageAllocator;
@@ -64,6 +71,8 @@ fn loop() noreturn {
     while (true) {
         std.log.info("On process {d}", .{processes.current.pid});
         std.log.info("sstatus {}", .{libriscv.Csr.read(.sstatus)});
+        std.log.info("Current time: {d}", .{libriscv.readTime()});
+        std.log.info("=== Going to sleep ===", .{});
         asm volatile ("wfi");
     }
 }
@@ -73,17 +82,15 @@ pub fn kmain() !void {
     const gpa = gpa_instance.allocator();
 
     const log = std.log.scoped(.kernel);
-    log.debug("kernel started", .{});
+    log.info("========== kernel started ==========", .{});
 
-    log.info("SBI version {d} ({d}/{s} version {d})", .{ libriscv.sbi.base.getSpecVersion(), libriscv.sbi.base.getImplementationId(), libriscv.sbi.base.getImplementationName(), libriscv.sbi.base.getImplementationVersion() });
-
-    for (std.enums.values(libriscv.sbi.Extension)) |ext| {
-        if (libriscv.sbi.base.probeExtension(ext)) {
-            log.info("Extension enabled: {s}", .{ext.name().?});
-        } else {
-            log.info("Extension disabled: {s}", .{ext.name().?});
-        }
-    }
+    riscv.printSbiInfo();
+    riscv.checkExtensions(&.{
+        .Base,
+        .ConsolePutchar,
+        .ConsoleGetchar,
+        .Time,
+    });
 
     try processes.createIdleProcess(gpa);
     processes.current = processes.Idle;
@@ -96,7 +103,7 @@ pub fn kmain() !void {
     // Enable interrupts at first switch to U-mode
     var sstatus: libriscv.Csr.Sstatus = libriscv.Csr.read(.sstatus);
     sstatus.spie = true;
-    sstatus.sie = true;
+    //sstatus.sie = true;
     libriscv.Csr.write(sstatus);
 
     // Enable all types of interrupts
@@ -106,16 +113,18 @@ pub fn kmain() !void {
         .external = true,
     };
     libriscv.Csr.write(sie);
-    log.warn("sie: {}", .{libriscv.Csr.read(.sie)});
+    log.info("All supervisor interrupts enabled", .{});
 
     // Set initial timer
     const rdtime = libriscv.readTime();
-    libriscv.sbi.time.setTimer(rdtime + TimerDelay);
+    libriscv.sbi.setTimer(rdtime + TimerDelay);
 
     // What I want to do now:
     // - Have an idle process which can be switched to, has low priority (only switched to if no
     //   other is ready, only runs the wfi instruction and waits for the next timer to switch)
     // - Putchar should not busy loop and instead set the process to waiting then switch
+
+    log.info("Initialization done, yielding", .{});
 
     processes.yield();
 }

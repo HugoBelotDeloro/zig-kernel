@@ -3,11 +3,6 @@ const Csr = @import("lib.zig").Csr;
 
 const root = @import("root");
 
-extern fn handle_trap(f: *TrapFrame) void;
-//const handle_trap: fn(f: *TrapFrame) callconv(.c) void = if (@hasDecl(root, "riscv") and @hasDecl(root.riscv, "handle_trap"))
-//    root.riscv.handle_trap
-//else @compileError("root.riscv.handle_trap not found");
-
 pub fn setTrapHandler() void {
     const entry_addr: usize = @intFromPtr(&kernel_entry);
     Csr.writeReg(.stvec, entry_addr);
@@ -50,7 +45,7 @@ pub const TrapFrame = extern struct {
 
 export fn kernel_entry() align(4) callconv(.Naked) void {
     asm volatile (
-        // Swap the stack pointer with the one stored in sscratch
+    // Swap the stack pointer with the one stored in sscratch
         \\csrrw sp, sscratch, sp
 
         // Store all registers on the kernel stack
@@ -95,7 +90,6 @@ export fn kernel_entry() align(4) callconv(.Naked) void {
         \\csrw sscratch, a0   # sscratch = a0
         \\mv a0, sp           # Setup the argument to handle_trap
         \\call handle_trap
-
         \\lw ra,  4 * 0(sp)
         \\lw gp,  4 * 1(sp)
         \\lw tp,  4 * 2(sp)
