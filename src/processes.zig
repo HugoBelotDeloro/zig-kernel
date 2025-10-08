@@ -70,7 +70,7 @@ pub fn yield() void {
     switchContextTo(current, next);
 }
 
-fn switchContextTo(from: *Process, to: *Process) void {
+inline fn switchContextTo(from: *Process, to: *Process) void {
     log.info("switching from process #{d} to #{d}", .{ from.pid, to.pid });
     asm volatile ("csrw sscratch, %[sscratch]"
         :

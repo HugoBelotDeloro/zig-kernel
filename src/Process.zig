@@ -118,7 +118,7 @@ fn idle() callconv(.Naked) noreturn {
     while (true) asm volatile ("wfi");
 }
 
-pub fn saveContext(self: *Self) void {
+pub inline fn saveContext(self: *Self) void {
     var ra: usize = undefined;
     var s0: usize = undefined;
     var s1: usize = undefined;
@@ -165,7 +165,7 @@ pub fn saveContext(self: *Self) void {
     };
 }
 
-pub fn loadContext(self: *Self) void {
+pub inline fn loadContext(self: *Self) void {
     const regs = &self.saved_registers;
     asm volatile (
     // Restore callee-saved registers only

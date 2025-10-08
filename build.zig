@@ -1,6 +1,8 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
+    const optimize = b.standardOptimizeOption(.{.preferred_optimize_mode = .ReleaseSmall});
+
     const target = b.resolveTargetQuery(std.Target.Query{
         .os_tag = .freestanding,
         .cpu_arch = .riscv32,
@@ -10,21 +12,21 @@ pub fn build(b: *std.Build) void {
     const common = b.createModule(.{
         .root_source_file = b.path("common/common.zig"),
         .target = target,
-        .optimize = .ReleaseSmall,
+        .optimize = optimize,
         .strip = false,
     });
 
     const libriscv = b.createModule(.{
         .root_source_file = b.path("riscv/lib.zig"),
         .target = target,
-        .optimize = .ReleaseSmall,
+        .optimize = optimize,
         .strip = false,
     });
 
     const kernel = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
-        .optimize = .ReleaseSmall,
+        .optimize = optimize,
         .strip = false,
     });
     kernel.addImport("common", common);
@@ -33,7 +35,7 @@ pub fn build(b: *std.Build) void {
     const shell = b.createModule(.{
         .root_source_file = b.path("user/user.zig"),
         .target = target,
-        .optimize = .ReleaseSmall,
+        .optimize = optimize,
         .strip = false,
     });
     shell.addImport("common", common);
