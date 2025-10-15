@@ -281,7 +281,6 @@ pub const PageTable = struct {
                 }
 
                 if (previous_valid and leaf.v and previous_flags == leaf.flags) count += 1;
-
             }
         };
 

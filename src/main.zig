@@ -65,6 +65,7 @@ const Million: usize = 1_000_000;
 const TimerDelay = 30 * Million;
 
 fn loop() noreturn {
+    for (0..100) |_| libriscv.sbi.putChar('a');
     var sstatus = libriscv.Csr.read(.sstatus);
     sstatus.sie = true;
     libriscv.Csr.write(sstatus);

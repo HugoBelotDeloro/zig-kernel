@@ -20,19 +20,67 @@ const State = enum {
 };
 
 const SavedRegisters = struct {
-    ra: usize,
-    s0: usize = 0,
-    s1: usize = 0,
-    s2: usize = 0,
-    s3: usize = 0,
-    s4: usize = 0,
-    s5: usize = 0,
-    s6: usize = 0,
-    s7: usize = 0,
-    s8: usize = 0,
-    s9: usize = 0,
-    s10: usize = 0,
-    s11: usize = 0,
+    regs: [13]usize = [_]usize{0} ** 13,
+
+    pub fn init(initial_return_address: usize, init_param: ?usize) SavedRegisters {
+        var sr = SavedRegisters{};
+        sr.regs[0] = initial_return_address;
+        if (init_param) |s0| sr.regs[1] = s0;
+        return sr;
+    }
+
+    pub fn ra(self: *SavedRegisters) usize {
+        return self.regs[0];
+    }
+
+    pub inline fn save(self: *SavedRegisters) void {
+        asm volatile (
+            \\sw ra, 4 * 0(%[regs])
+            \\sw s0, 4 * 1(%[regs])
+            \\sw s1, 4 * 2(%[regs])
+            \\sw s2, 4 * 3(%[regs])
+            \\sw s3, 4 * 4(%[regs])
+            \\sw s4, 4 * 5(%[regs])
+            \\sw s5, 4 * 6(%[regs])
+            \\sw s6, 4 * 7(%[regs])
+            \\sw s7, 4 * 8(%[regs])
+            \\sw s8, 4 * 9(%[regs])
+            \\sw s9, 4 * 10(%[regs])
+            \\sw s10, 4 * 11(%[regs])
+            \\sw s11, 4 * 12(%[regs])
+            :
+            : [regs] "r" (&self.regs),
+        );
+    }
+
+    pub inline fn load(self: *SavedRegisters) void {
+        asm volatile (
+            \\lw ra, 4 * 0(%[regs])
+            \\lw s0, 4 * 1(%[regs])
+            \\lw s1, 4 * 2(%[regs])
+            \\lw s2, 4 * 3(%[regs])
+            \\lw s3, 4 * 4(%[regs])
+            \\lw s4, 4 * 5(%[regs])
+            \\lw s5, 4 * 6(%[regs])
+            \\lw s6, 4 * 7(%[regs])
+            \\lw s7, 4 * 8(%[regs])
+            \\lw s8, 4 * 9(%[regs])
+            \\lw s9, 4 * 10(%[regs])
+            \\lw s10, 4 * 11(%[regs])
+            \\lw s11, 4 * 12(%[regs])
+            :
+            : [regs] "r" (&self.regs),
+        );
+    }
+
+    pub fn format(
+        self: *const SavedRegisters,
+        comptime _: []const u8,
+        _: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        try writer.print("{any} ", .{self.regs});
+    }
 };
 
 pid: usize,
@@ -43,9 +91,8 @@ page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8 align(4),
 
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
-    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable, .saved_registers = SavedRegisters{
-        .ra = @intFromPtr(&idle),
-    } };
+    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable,
+    .saved_registers = .init(@intFromPtr(&idle), null) };
 }
 
 pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn) !void {
@@ -56,10 +103,10 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn) !void {
         .pid = pid,
         .sp = self.stack[self.stack.len - 1 ..],
         .state = .runnable,
-        .saved_registers = SavedRegisters{
-            .ra = @intFromPtr(&kernelEntry),
-            .s3 = @intFromPtr(entry),
-        },
+        .saved_registers = .init(
+            @intFromPtr(&kernelEntry),
+            @intFromPtr(entry),
+        ),
         .page_table = page_table,
         .stack = undefined,
     };
@@ -71,7 +118,7 @@ fn kernelEntry() callconv(.naked) noreturn {
         .spp = .supervisor,
     };
     asm volatile (
-        \\csrw sepc, s3
+        \\csrw sepc, s0
         \\csrw sstatus, %[sstatus]
         \\sret
         :
@@ -118,81 +165,12 @@ fn idle() callconv(.Naked) noreturn {
     while (true) asm volatile ("wfi");
 }
 
-pub inline fn saveContext(self: *Self) void {
-    var ra: usize = undefined;
-    var s0: usize = undefined;
-    var s1: usize = undefined;
-    var s2: usize = undefined;
-    var s3: usize = undefined;
-    var s4: usize = undefined;
-    var s5: usize = undefined;
-    var s6: usize = undefined;
-    var s7: usize = undefined;
-    var s8: usize = undefined;
-    var s9: usize = undefined;
-    var s10: usize = undefined;
-    var s11: usize = undefined;
-    asm volatile (""
-        // Save callee-saved registers only
-        : [ra] "={ra}" (ra),
-          [s0] "={s0}" (s0),
-          [s1] "={s1}" (s1),
-          [s2] "={s2}" (s2),
-          [s3] "={s3}" (s3),
-          [s4] "={s4}" (s4),
-          [s5] "={s5}" (s5),
-          [s6] "={s6}" (s6),
-          [s7] "={s7}" (s7),
-          [s8] "={s8}" (s8),
-          [s9] "={s9}" (s9),
-          [s10] "={s10}" (s10),
-          [s11] "={s11}" (s11),
-    );
-    self.saved_registers = SavedRegisters{
-        .ra = ra,
-        .s0 = s0,
-        .s1 = s1,
-        .s2 = s2,
-        .s3 = s3,
-        .s4 = s4,
-        .s5 = s5,
-        .s6 = s6,
-        .s7 = s7,
-        .s8 = s8,
-        .s9 = s9,
-        .s10 = s10,
-        .s11 = s11,
-    };
-}
-
-pub inline fn loadContext(self: *Self) void {
-    const regs = &self.saved_registers;
-    asm volatile (
-    // Restore callee-saved registers only
-    // Then return
-        ""
-        :
-        : [ra] "{ra}" (regs.ra),
-          [s0] "{s0}" (regs.s0),
-          [s1] "{s1}" (regs.s1),
-          [s2] "{s2}" (regs.s2),
-          [s3] "{s3}" (regs.s3),
-          [s4] "{s4}" (regs.s4),
-          [s5] "{s5}" (regs.s5),
-          [s6] "{s6}" (regs.s6),
-          [s7] "{s7}" (regs.s7),
-          [s8] "{s8}" (regs.s8),
-          [s9] "{s9}" (regs.s9),
-          [s10] "{s10}" (regs.s10),
-          [s11] "{s11}" (regs.s11),
-    );
-}
-
 pub fn format(
     self: *Self,
     comptime _: []const u8,
     _: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    try writer.print("{{Process #{d} sp {x} ra {x} {s}}}", .{ self.pid, @intFromPtr(self.sp), self.saved_registers.ra, @tagName(self.state) });
+    try writer.print("{{Process #{d} sp {x} ra {x} {s}}}", .{ self.pid, @intFromPtr(self.sp),
+self.saved_registers.ra(), @tagName(self.state) });
 }

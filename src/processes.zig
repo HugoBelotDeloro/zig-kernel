@@ -70,7 +70,9 @@ pub fn yield() void {
     switchContextTo(current, next);
 }
 
-fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
+noinline fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
+    from.saved_registers.save();
+
     log.info("switching from process #{d} to #{d}", .{ from.pid, to.pid });
     asm volatile ("csrw sscratch, %[sscratch]"
         :
@@ -79,21 +81,15 @@ fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
 
     current = to;
 
-    from.saveContext();
-    const Satp = @import("root").libriscv.sv32.Satp;
-    Satp.fromPageTable(to.page_table).set();
+    @import("root").libriscv.sv32.Satp.fromPageTable(to.page_table).set();
 
     asm volatile (
-    // Switch the stack pointer.
-    // *prev_sp = sp;
         \\sw sp, (%[curr])
-        // Switch stack pointer (sp) here
         \\lw sp, (%[next])
         :
         : [next] "r" (&to.sp),
           [curr] "r" (&from.sp),
     );
-    to.loadContext();
-
-    asm volatile ("ret");
+    to.saved_registers.load();
+    asm volatile("ret");
 }
