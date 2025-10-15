@@ -21,7 +21,7 @@ pub fn createIdleProcess(page_alloc: std.mem.Allocator) !void {
     try Process.initIdle(Idle, page_alloc);
 }
 
-pub fn createKernelProcess(entry: *const fn () noreturn, pa: std.mem.Allocator) !*Process {
+pub fn createKernelProcess(entry: *const fn () noreturn) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
         if (process.state == .unused) {
             break id;
@@ -30,7 +30,7 @@ pub fn createKernelProcess(entry: *const fn () noreturn, pa: std.mem.Allocator) 
 
     var proc = &Procs[proc_id];
 
-    try proc.initKernel(proc_id, entry, pa);
+    try proc.initKernel(proc_id, entry);
     log.info("Created {}", .{proc});
 
     return proc;
@@ -70,7 +70,7 @@ pub fn yield() void {
     switchContextTo(current, next);
 }
 
-inline fn switchContextTo(from: *Process, to: *Process) void {
+fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
     log.info("switching from process #{d} to #{d}", .{ from.pid, to.pid });
     asm volatile ("csrw sscratch, %[sscratch]"
         :

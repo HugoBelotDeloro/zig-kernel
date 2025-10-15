@@ -48,8 +48,8 @@ pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
     } };
 }
 
-pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn, page_alloc: std.mem.Allocator) !void {
-    const page_table = try @import("processes.zig").Idle.page_table.clone(page_alloc);
+pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn) !void {
+    const page_table = @import("processes.zig").Idle.page_table;
     log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
     self.* = Self{

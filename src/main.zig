@@ -99,8 +99,8 @@ pub fn kmain() !void {
 
     // log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
     //_ = try processes.createUserProcess(shell, gpa);
-    _ = try processes.createKernelProcess(&loop, gpa);
-    _ = try processes.createKernelProcess(&loop, gpa);
+    _ = try processes.createKernelProcess(&loop);
+    _ = try processes.createKernelProcess(&loop);
 
     // Enable interrupts at first switch to U-mode
     var sstatus: libriscv.Csr.Sstatus = libriscv.Csr.read(.sstatus);
