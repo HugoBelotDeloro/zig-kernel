@@ -20,17 +20,13 @@ pub const Satp = packed struct(u32) {
         sv32 = 1,
     },
 
-    pub fn setBare(self: Satp) void {
-        self = @bitCast(0);
-    }
-
-    pub fn set(self: Satp) void {
+    pub inline fn set(self: Satp) void {
         asm volatile ("sfence.vma");
         riscv.Csr.write(self);
         asm volatile ("sfence.vma");
     }
 
-    pub fn fromPageTable(page_table: PageTable.Ptr) Satp {
+    pub inline fn fromPageTable(page_table: PageTable.Ptr) Satp {
         const pt: PhysAddr = @bitCast(@intFromPtr(page_table));
         return .{
             .ppn_0 = pt.ppn_0,
@@ -206,7 +202,11 @@ pub const PageTableEntry = packed struct(u32) {
     ) !void {
         _ = fmt;
         _ = options;
-        try writer.print("SV32PTE{{ *{x}, {}}}", .{ self.address(), self.flags });
+        if (self.v) {
+            try writer.print("*{x}-{}", .{ self.address(), self.flags });
+        } else {
+            _ = try writer.write("Invalid");
+        }
     }
 };
 
@@ -257,6 +257,35 @@ pub const PageTable = struct {
         while (i < mem.len) : (i += PageSize) {
             try table_1.mapPage(base_va + i, @intFromPtr(&mem[i]), PageFlags.from(flags), page_alloc);
         }
+    }
+
+    pub fn logMemoryMap(self: PageTable.Ptr) void {
+        var start_address: u32 = 0;
+        var count: u32 = 0;
+        var previous_flags: PageFlags = .{};
+        var previous_valid = false;
+        for (self.entries) |entry| if (entry.v) {
+            for ((entry.nextPage() catch unreachable).entries) |leaf| {
+                if (!previous_valid and !leaf.v) continue;
+
+                if ((previous_valid and !leaf.v) or (previous_valid and leaf.v and previous_flags != leaf.flags)) {
+                    log.info("{x} - {d} pages {}", .{ start_address, count, previous_flags });
+                    previous_valid = leaf.v;
+                }
+
+                if ((!previous_valid and leaf.v) or (previous_valid and leaf.v and leaf.flags != previous_flags)) {
+                    count = 1;
+                    start_address = leaf.address();
+                    previous_flags = leaf.flags;
+                    previous_valid = true;
+                }
+
+                if (previous_valid and leaf.v and previous_flags == leaf.flags) count += 1;
+
+            }
+        };
+
+        if (previous_valid) log.info("{x} - {d} pages {}", .{ start_address, count, previous_flags });
     }
 };
 

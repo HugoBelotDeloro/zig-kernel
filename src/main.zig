@@ -94,6 +94,8 @@ pub fn kmain() !void {
 
     try processes.createIdleProcess(gpa);
     processes.current = processes.Idle;
+    libriscv.sv32.Satp.fromPageTable(processes.Idle.page_table).set();
+    processes.current.page_table.logMemoryMap();
 
     // log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
     //_ = try processes.createUserProcess(shell, gpa);

@@ -26,7 +26,7 @@ pub fn mapKernel(page_alloc: std.mem.Allocator) !*align(riscv.PageSize) PageTabl
     try page_table.mapRange(Rodata[0 .. RodataEnd - Rodata], @intFromPtr(Rodata), "r", page_alloc);
     try page_table.mapRange(Data[0 .. DataEnd - Data], @intFromPtr(Data), "rw", page_alloc);
     try page_table.mapRange(Bss[0 .. BssEnd - Bss], @intFromPtr(Bss), "rw", page_alloc);
-    try page_table.mapRange(Bss[0 .. StackTop - Stack], @intFromPtr(Stack), "rw", page_alloc);
+    try page_table.mapRange(Stack[0 .. StackTop - Stack], @intFromPtr(Stack), "rw", page_alloc);
     try page_table.mapRange(FreeRam[0 .. FreeRamEnd - FreeRam], @intFromPtr(FreeRam), "rw", page_alloc);
     return page_table;
 }

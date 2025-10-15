@@ -40,7 +40,7 @@ state: State = .unused,
 sp: [*]u8,
 saved_registers: SavedRegisters,
 page_table: sv32.PageTable.Ptr,
-stack: [StackSize]u8,
+stack: [StackSize]u8 align(4),
 
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
     self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable, .saved_registers = SavedRegisters{

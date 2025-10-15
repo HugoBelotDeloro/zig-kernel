@@ -28,7 +28,7 @@ pub const Csr = union(enum) {
         return @bitCast(v);
     }
 
-    pub fn write(self: anytype) void {
+    pub inline fn write(self: anytype) void {
         asm volatile ("csrw " ++ @tagName(tagOf(@TypeOf(self))) ++ ", %[val]"
             :
             : [val] "r" (self),
