@@ -64,16 +64,17 @@ pub const os = struct {
 const Million: usize = 1_000_000;
 const TimerDelay = 30 * Million;
 
-fn loop() noreturn {
-    for (0..100) |_| libriscv.sbi.putChar('a');
+fn loop() callconv(.c) noreturn {
     var sstatus = libriscv.Csr.read(.sstatus);
     sstatus.sie = true;
     libriscv.Csr.write(sstatus);
+
     while (true) {
-        std.log.info("On process {d}", .{processes.current.pid});
-        std.log.info("sstatus {}", .{libriscv.Csr.read(.sstatus)});
-        std.log.info("Current time: {d}", .{libriscv.readTime()});
-        std.log.info("=== Going to sleep ===", .{});
+        const log = std.log.scoped(.loop);
+        log.info("On process {d}", .{processes.current.pid});
+        log.info("sstatus {}", .{libriscv.Csr.read(.sstatus)});
+        log.info("Current time: {d}", .{libriscv.readTime()});
+        log.info("=== Going to sleep ===", .{});
         asm volatile ("wfi");
     }
 }
@@ -128,6 +129,5 @@ pub fn kmain() !void {
     // - Putchar should not busy loop and instead set the process to waiting then switch
 
     log.info("Initialization done, yielding", .{});
-
     processes.yield();
 }

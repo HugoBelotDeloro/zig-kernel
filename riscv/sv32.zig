@@ -269,7 +269,7 @@ pub const PageTable = struct {
                 if (!previous_valid and !leaf.v) continue;
 
                 if ((previous_valid and !leaf.v) or (previous_valid and leaf.v and previous_flags != leaf.flags)) {
-                    log.info("{x} - {d} pages {}", .{ start_address, count, previous_flags });
+                    log.debug("{x} - {d} pages {}", .{ start_address, count, previous_flags });
                     previous_valid = leaf.v;
                 }
 
@@ -284,7 +284,7 @@ pub const PageTable = struct {
             }
         };
 
-        if (previous_valid) log.info("{x} - {d} pages {}", .{ start_address, count, previous_flags });
+        if (previous_valid) log.debug("{x} - {d} pages {}", .{ start_address, count, previous_flags });
     }
 };
 

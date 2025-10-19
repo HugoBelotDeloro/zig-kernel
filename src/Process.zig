@@ -95,13 +95,12 @@ pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
     .saved_registers = .init(@intFromPtr(&idle), null) };
 }
 
-pub fn initKernel(self: *Self, pid: usize, entry: *const fn () noreturn) !void {
+pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) noreturn) !void {
     const page_table = @import("processes.zig").Idle.page_table;
-    log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
     self.* = Self{
         .pid = pid,
-        .sp = self.stack[self.stack.len - 1 ..],
+        .sp = self.stack[self.stack.len ..],
         .state = .runnable,
         .saved_registers = .init(
             @intFromPtr(&kernelEntry),
@@ -124,6 +123,7 @@ fn kernelEntry() callconv(.naked) noreturn {
         :
         : [sstatus] "r" (sstatus),
     );
+    while (true) asm volatile("wfi");
 }
 
 pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
@@ -171,6 +171,6 @@ pub fn format(
     _: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    try writer.print("{{Process #{d} sp {x} ra {x} {s}}}", .{ self.pid, @intFromPtr(self.sp),
+    try writer.print("{{{*} #{d} sp {x} ra {x} {s}}}", .{ self, self.pid, @intFromPtr(self.sp),
 self.saved_registers.ra(), @tagName(self.state) });
 }

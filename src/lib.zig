@@ -17,14 +17,13 @@ pub const PageAllocator = page_allocator.PageAllocator;
 
 // Logging
 
-const Context = void;
-const Writer = std.io.Writer(Context, WriteError, writeToSerialConsole);
+const Writer = std.io.Writer(void, WriteError, writeToSerialConsole);
 pub const serialWriter = Writer{
     .context = {},
 };
 
 const WriteError = error{};
-fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
+fn writeToSerialConsole(context: void, bytes: []const u8) WriteError!usize {
     _ = context;
     for (bytes) |c| {
         riscv.sbi.putChar(c);

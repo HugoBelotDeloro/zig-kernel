@@ -21,7 +21,7 @@ pub fn createIdleProcess(page_alloc: std.mem.Allocator) !void {
     try Process.initIdle(Idle, page_alloc);
 }
 
-pub fn createKernelProcess(entry: *const fn () noreturn) !*Process {
+pub fn createKernelProcess(entry: *const fn () callconv(.c) noreturn) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
         if (process.state == .unused) {
             break id;
@@ -52,9 +52,9 @@ pub fn createUserProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
 }
 
 pub fn yield() void {
-    var i = current.pid + 1;
+    var i = (current.pid + 1) % ProcsMax;
     while (i != current.pid) : (i = (i + 1) % ProcsMax) {
-        if (Procs[i].pid != 0 and Procs[i].state == .runnable) break;
+        if (i != 0 and Procs[i].state == .runnable) break;
     }
 
     const next = &Procs[i];
