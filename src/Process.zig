@@ -98,11 +98,11 @@ pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
 }
 
 pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) noreturn, page_alloc: std.mem.Allocator) !void {
-    const page_table = @import("processes.zig").Idle.page_table;
+    const page_table = try @import("processes.zig").Idle.page_table.clone(page_alloc);
 
     // Allocate and map stack pages
     const pages = try lib.allocPagesFromLen(KernelProcessStackSize);
-    try page_table.mapRange(pages, UserBase, "rwxu", page_alloc);
+    try page_table.mapRange(pages, UserBase, "rwx", page_alloc);
 
     self.* = Self{
         .pid = pid,
@@ -123,13 +123,14 @@ fn kernelEntry() callconv(.naked) noreturn {
         .spie = true,
         .spp = .supervisor,
     };
+    const kernel_stack_top = UserBase + KernelProcessStackSize;
     asm volatile (
         \\mv sp, %[stack_top]
         \\csrw sepc, s0
         \\csrw sstatus, %[sstatus]
         \\sret
         :
-        : [stack_top] "r" (lib.segmentation.StackTop),
+        : [stack_top] "r" (kernel_stack_top),
           [sstatus] "r" (sstatus),
     );
     while (true) asm volatile ("wfi");
