@@ -93,7 +93,8 @@ stack: [StackSize]u8 align(4),
 const KernelProcessStackSize: usize = 64 * 1024;
 
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
-    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable, .saved_registers = .init(@intFromPtr(&idle), null) };
+    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc),
+    .sp = self.stack[self.stack.len..], .stack = undefined, .state = .runnable, .saved_registers = .init(@intFromPtr(&idle), null) };
 }
 
 pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) noreturn, page_alloc: std.mem.Allocator) !void {
@@ -119,15 +120,17 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) nore
 /// Jump to s0 (kernel function to run in this process) in kernel mode and with interrupts enabled.
 fn kernelEntry() callconv(.naked) noreturn {
     const sstatus = Csr.Sstatus{
-        .sie = true,
+        .spie = true,
         .spp = .supervisor,
     };
     asm volatile (
+        \\mv sp, %[stack_top]
         \\csrw sepc, s0
         \\csrw sstatus, %[sstatus]
         \\sret
         :
-        : [sstatus] "r" (sstatus),
+        : [stack_top] "r" (lib.segmentation.StackTop),
+          [sstatus] "r" (sstatus),
     );
     while (true) asm volatile ("wfi");
 }
@@ -143,7 +146,7 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
 
     self.* = Self{
         .pid = pid,
-        .sp = self.stack[self.stack.len - 1 ..],
+        .sp = self.stack[self.stack.len..],
         .state = .runnable,
         .saved_registers = .init(@intFromPtr(&userEntry), null),
         .page_table = page_table,
@@ -155,6 +158,7 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
 fn userEntry() callconv(.naked) noreturn {
     const sstatus = Csr.Sstatus{
         .spie = true,
+        .spp = .user,
     };
     asm volatile (
         \\csrw sepc, %[sepc]

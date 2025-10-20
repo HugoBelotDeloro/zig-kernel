@@ -24,6 +24,7 @@ pub const Satp = packed struct(u32) {
         asm volatile ("sfence.vma");
         riscv.Csr.write(self);
         asm volatile ("sfence.vma");
+        log.info("Switched page table", .{});
     }
 
     inline fn fromPageTable(page_table: PageTable.Ptr) Satp {

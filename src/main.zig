@@ -26,7 +26,7 @@ comptime {
 
 pub const panic = std.debug.FullPanic(lib.panic);
 
-export fn boot() linksection(".text.boot") callconv(.Naked) noreturn {
+export fn boot() linksection(".text.boot") callconv(.naked) noreturn {
     asm volatile (
         \\mv sp, %[stack_top]
         \\j kernel_setup

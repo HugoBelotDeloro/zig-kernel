@@ -73,7 +73,7 @@ pub fn yield() void {
 noinline fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
     from.saved_registers.save();
 
-    log.info("switching from process #{d} to #{d}", .{ from.pid, to.pid });
+    log.info("switching from process #{d} to #{d} @ {x}", .{ from.pid, to.pid, to.saved_registers.ra() });
     asm volatile ("csrw sscratch, %[sscratch]"
         :
         : [sscratch] "r" (@as([*]u8, @ptrCast(&to.stack)) + to.stack.len),
