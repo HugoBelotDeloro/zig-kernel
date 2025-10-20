@@ -3,7 +3,14 @@ A small project for me to learn more about kernel dev and Zig.
 Loosely based on [OS in 1k lines of C](https://operating-system-in-1000-lines.vercel.app/en/).
 
 # Design decisions
-## Idle process
+## Processes
+Processes each have two stacks: the interrupt stack as well as the regular stack.
+There are two types of processes: user and kernel processes.
+
+User processes images are unpacked at `0x1000000`, and contain both code and stack space.
+The user entry will jump at this address after setting up the stack and switching to user mode.
+
+### Idle process
 I am not sure how other kernels handle waiting for work, however I decided to use an idle process.
 This is a process that is initialized at boot time, and only waits for interruptions in a loop.
 It has PID 0, and no userland counterpart.

@@ -2,7 +2,7 @@ const common = @import("common");
 const std = @import("std");
 
 const Syscall = common.Syscall;
-const StackTop = @extern([*]u8, .{ .name = "__stack_top" });
+const StackTop = @extern([*]u8, .{ .name = "__user_stack_top" });
 
 export fn exit() noreturn {
     _ = syscall(.exit, 0, 0, 0);

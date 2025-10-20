@@ -20,13 +20,13 @@ pub const Satp = packed struct(u32) {
         sv32 = 1,
     },
 
-    pub inline fn set(self: Satp) void {
+    inline fn set(self: Satp) void {
         asm volatile ("sfence.vma");
         riscv.Csr.write(self);
         asm volatile ("sfence.vma");
     }
 
-    pub inline fn fromPageTable(page_table: PageTable.Ptr) Satp {
+    inline fn fromPageTable(page_table: PageTable.Ptr) Satp {
         const pt: PhysAddr = @bitCast(@intFromPtr(page_table));
         return .{
             .ppn_0 = pt.ppn_0,
@@ -43,19 +43,19 @@ const VirtAddr = packed struct(u32) {
     vpn_0: u10,
     vpn_1: u10,
 
-    pub fn from(addr: usize) VirtAddr {
+    fn from(addr: usize) VirtAddr {
         return @bitCast(addr);
     }
 
-    pub fn to(self: VirtAddr) usize {
+    fn to(self: VirtAddr) usize {
         return @bitCast(self);
     }
 
-    pub fn pageAddress(self: VirtAddr) usize {
+    fn pageAddress(self: VirtAddr) usize {
         self.to() & ~(PageSize - 1);
     }
 
-    pub fn offset(self: VirtAddr, offset_value: usize) VirtAddr {
+    fn offset(self: VirtAddr, offset_value: usize) VirtAddr {
         const s: u32 = @bitCast(self);
         return @bitCast(s + offset_value);
     }
@@ -67,19 +67,19 @@ const PhysAddr = packed struct(u32) {
     ppn_0: u10,
     ppn_1: u10,
 
-    pub fn from(addr: u32) PhysAddr {
+    fn from(addr: u32) PhysAddr {
         return @bitCast(addr);
     }
 
-    pub fn to(self: PhysAddr) u32 {
+    fn to(self: PhysAddr) u32 {
         return @bitCast(self);
     }
 
-    pub fn pageAddress(self: PhysAddr) u32 {
+    fn pageAddress(self: PhysAddr) u32 {
         self.to() & ~(PageSize - 1);
     }
 
-    pub fn offset(self: PhysAddr, offset_value: usize) PhysAddr {
+    fn offset(self: PhysAddr, offset_value: usize) PhysAddr {
         const s: u32 = @bitCast(self);
         return @bitCast(s + offset_value);
     }
@@ -87,7 +87,7 @@ const PhysAddr = packed struct(u32) {
 
 /// A PTE is a leaf is r, w and x are clear.
 /// If it is non-leaf then u, a and d must be clear.
-pub const PageFlags = packed struct(u9) {
+const PageFlags = packed struct(u9) {
     /// Readable page
     r: bool = false,
     /// Writable page.
@@ -110,7 +110,7 @@ pub const PageFlags = packed struct(u9) {
     /// Reserved for use by the supervisor
     rsw: u2 = 0,
 
-    pub fn from(comptime s: []const u8) PageFlags {
+    fn from(comptime s: []const u8) PageFlags {
         var flags = PageFlags{};
         comptime var i = 0;
         if (i < s.len and s[i] == 'r') {
@@ -168,14 +168,14 @@ pub const PageFlags = packed struct(u9) {
 /// An entry in a page table.
 /// It can contain either the physical address of the next page table,
 /// or the physical address of a page.
-pub const PageTableEntry = packed struct(u32) {
+const PageTableEntry = packed struct(u32) {
     /// Whether the entry is valid
     v: bool = false,
     flags: PageFlags = .{},
     ppn_0: u10,
     ppn_1: u12,
 
-    pub fn init(self: *PageTableEntry, flags: PageFlags, addr: PhysAddr) void {
+    fn init(self: *PageTableEntry, flags: PageFlags, addr: PhysAddr) void {
         self.* = .{
             .v = true,
             .flags = flags,
@@ -184,13 +184,13 @@ pub const PageTableEntry = packed struct(u32) {
         };
     }
 
-    pub fn address(self: PageTableEntry) u32 {
+    fn address(self: PageTableEntry) u32 {
         return @bitCast(PhysAddr{ .ppn_1 = @truncate(self.ppn_1), .ppn_0 = self.ppn_0, .page_offset = 0 });
     }
 
-    pub fn nextPage(self: PageTableEntry) !PageTable.Ptr {
+    fn nextPage(self: PageTableEntry) PageTable.Ptr {
         if (self.flags.r or self.flags.w or self.flags.x)
-            return error.LeafPage;
+            @panic("attempting to get the inner page of a leaf");
         return @ptrFromInt(self.address());
     }
 
@@ -202,6 +202,7 @@ pub const PageTableEntry = packed struct(u32) {
     ) !void {
         _ = fmt;
         _ = options;
+
         if (self.v) {
             try writer.print("*{x}-{}", .{ self.address(), self.flags });
         } else {
@@ -215,12 +216,16 @@ pub const PageTable = struct {
 
     pub const Ptr = *align(PageSize) PageTable;
 
+    pub fn setActive(self: Ptr) void {
+        Satp.fromPageTable(self).set();
+    }
+
     pub fn create(page_alloc: std.mem.Allocator) !*align(PageSize) PageTable {
         const page_table = try page_alloc.alignedAlloc(PageTable, @intCast(PageSize), 1);
         return &page_table.ptr[0];
     }
 
-    pub fn clone(self: *PageTable, page_alloc: std.mem.Allocator) !*align(PageSize) PageTable {
+    pub fn clone(self: *PageTable, page_alloc: std.mem.Allocator) !Ptr {
         const page_table = try PageTable.create(page_alloc);
         @memcpy(&page_table.entries, &self.entries);
         return page_table;
@@ -241,7 +246,7 @@ pub const PageTable = struct {
             log.debug("new lv1 PTE: {}", .{entry_1});
         }
 
-        const table_0 = try entry_1.nextPage();
+        const table_0 = entry_1.nextPage();
         const entry_0 = &table_0.entries[va.vpn_0];
         entry_0.* = PageTableEntry{ .ppn_0 = pa.ppn_0, .ppn_1 = pa.ppn_1, .v = true, .flags = flags };
         log.debug("new lv2 PTE: {}", .{entry_0});
@@ -265,16 +270,17 @@ pub const PageTable = struct {
         var previous_flags: PageFlags = .{};
         var previous_valid = false;
         for (self.entries) |entry| if (entry.v) {
-            for ((entry.nextPage() catch unreachable).entries) |leaf| {
-                if (!previous_valid and !leaf.v) continue;
+            for (entry.nextPage().entries) |leaf| {
+                if (!leaf.v) continue;
 
-                if ((previous_valid and !leaf.v) or (previous_valid and leaf.v and previous_flags != leaf.flags)) {
-                    log.debug("{x} - {d} pages {}", .{ start_address, count, previous_flags });
+                if (previous_valid and (!leaf.v or (leaf.v and previous_flags != leaf.flags))) {
+                    log.info("{x}-{x}: {d:8} pages {}", .{ start_address, start_address + PageSize *
+                        count - 1, count, previous_flags });
                     previous_valid = leaf.v;
                 }
 
                 if ((!previous_valid and leaf.v) or (previous_valid and leaf.v and leaf.flags != previous_flags)) {
-                    count = 1;
+                    count = 0;
                     start_address = leaf.address();
                     previous_flags = leaf.flags;
                     previous_valid = true;
@@ -284,7 +290,8 @@ pub const PageTable = struct {
             }
         };
 
-        if (previous_valid) log.debug("{x} - {d} pages {}", .{ start_address, count, previous_flags });
+        if (previous_valid) log.info("{x}-{x}: {d:8} pages {}", .{ start_address, start_address + PageSize *
+            count - 1, count, previous_flags });
     }
 };
 

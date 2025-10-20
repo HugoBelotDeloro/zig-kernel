@@ -15,6 +15,7 @@ There are 33 unprivileged registers: 32 "x" registers as well as pc.
 ## Control and Status Registers
 - sscratch: used to hold a pointer to the bottom (just after the last address) of the current process' kernel stack.
   Upon trapping, the kernel stack will be reset to this address (effectively erasing any existing stack).
+- sepc (supervisor exception program counter): holds the address of the instruction that was executing when the trap handler was triggered.
 
 # Instructions
 ## Assembly

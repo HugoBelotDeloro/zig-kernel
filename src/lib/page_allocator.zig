@@ -36,7 +36,7 @@ fn allocNewPages(count: usize) ?[*]u8 {
         return null;
     }
     next_page = new_next_page;
-    log.debug("allocated new page {*}", .{page});
+    log.debug("allocated {x} new pages at {*}", .{ count, page });
     return page;
 }
 

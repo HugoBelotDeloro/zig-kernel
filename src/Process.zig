@@ -100,7 +100,7 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) nore
 
     self.* = Self{
         .pid = pid,
-        .sp = self.stack[self.stack.len ..],
+        .sp = self.stack[self.stack.len..],
         .state = .runnable,
         .saved_registers = .init(
             @intFromPtr(&kernelEntry),
@@ -130,7 +130,7 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
     const page_table = try @import("processes.zig").Idle.page_table.clone(page_alloc);
     log.debug("Created page table {*} for process {d}", .{ page_table, pid });
 
-    // Map user pages
+    // Allocate, copy and map user pages
     const pages = try lib.allocPagesFromLen(image.len);
     @memcpy(pages, image);
     try page_table.mapRange(pages, UserBase, "rwxu", page_alloc);
@@ -147,6 +147,7 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
     };
 }
 
+/// Jump to UserBase in user mode with interrupts enabled
 fn userEntry() callconv(.naked) noreturn {
     const sstatus = Csr.Sstatus{
         .spie = true,

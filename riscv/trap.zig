@@ -43,6 +43,7 @@ pub const TrapFrame = extern struct {
     sp: usize,
 };
 
+// Align is necessary otherwise stvec will be in vectored mode
 export fn kernel_entry() align(4) callconv(.Naked) void {
     asm volatile (
     // Swap the stack pointer with the one stored in sscratch

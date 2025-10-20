@@ -4,6 +4,6 @@ const riscv = @import("riscv");
 
 pub fn handleTimer() void {
     const time = riscv.readTime();
-    riscv.sbi.setTimer(time + 30_000_000);
+    riscv.sbi.setTimer(time + 10_000_000);
     lib.yield();
 }
