@@ -1,3 +1,4 @@
+const std = @import("std");
 const log = @import("std").log.scoped(.trap);
 const Csr = @import("lib.zig").Csr;
 
@@ -41,6 +42,16 @@ pub const TrapFrame = extern struct {
     s10: usize,
     s11: usize,
     sp: usize,
+
+    pub fn logFrame(
+        self: TrapFrame,
+    ) void {
+        const fields = std.meta.fields(TrapFrame);
+        inline for (fields) |field| {
+            const value = @field(self, field.name);
+            log.info("\t{s:<3} = \t{d:10}\t{x:8}", .{ field.name, value, value });
+        }
+    }
 };
 
 // Align is necessary otherwise stvec will be in vectored mode

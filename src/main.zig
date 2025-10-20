@@ -1,12 +1,13 @@
-pub const lib = @import("lib.zig");
-pub const libriscv = @import("riscv");
 const std = @import("std");
-const processes = @import("processes.zig");
-const Process = @import("Process.zig");
 
-pub const riscv = @import("riscv.zig");
-
+pub const libriscv = @import("riscv");
 const PageSize = libriscv.PageSize;
+
+pub const lib = @import("lib.zig");
+pub const PageAllocator = lib.PageAllocator;
+const Process = @import("Process.zig");
+const processes = @import("processes.zig");
+pub const riscv = @import("riscv.zig");
 
 const shell = @embedFile("shell.bin");
 
@@ -46,7 +47,6 @@ export fn kernel_setup() noreturn {
     std.debug.panic("kmain returned", .{});
 }
 
-pub const PageAllocator = lib.PageAllocator;
 const KAllocator = std.heap.GeneralPurposeAllocator(.{
     .thread_safe = false,
     .page_size = PageSize,
@@ -72,7 +72,6 @@ fn loop() callconv(.c) noreturn {
     while (true) {
         const log = std.log.scoped(.loop);
         log.info("On process {d}", .{processes.current.pid});
-        log.info("sstatus {}", .{libriscv.Csr.read(.sstatus)});
         log.info("Current time: {d}", .{libriscv.readTime()});
         log.info("=== Going to sleep ===", .{});
         asm volatile ("wfi");
@@ -96,13 +95,13 @@ pub fn kmain() !void {
 
     try processes.createIdleProcess(gpa);
     processes.current = processes.Idle;
-    libriscv.sv32.Satp.fromPageTable(processes.Idle.page_table).set();
+    processes.current.page_table.setActive();
     processes.current.page_table.logMemoryMap();
 
     // log.warn("shell.bin: size {d} addr {*}", .{ shell.len, shell.ptr });
     //_ = try processes.createUserProcess(shell, gpa);
-    _ = try processes.createKernelProcess(&loop);
-    _ = try processes.createKernelProcess(&loop);
+    _ = try processes.createKernelProcess(&loop, gpa);
+    _ = try processes.createKernelProcess(&loop, gpa);
 
     // Enable interrupts at first switch to U-mode
     var sstatus: libriscv.Csr.Sstatus = libriscv.Csr.read(.sstatus);

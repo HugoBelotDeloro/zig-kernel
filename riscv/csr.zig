@@ -9,7 +9,9 @@ pub const Csr = union(enum) {
     stvec: usize,
     sepc: usize,
     sip: usize,
-    satp: @import("sv32.zig").Satp,
+    satp: Satp,
+
+    pub const Satp = @import("sv32.zig").Satp;
 
     fn tagOf(comptime reg_type: type) std.meta.Tag(Csr) {
         return switch (reg_type) {

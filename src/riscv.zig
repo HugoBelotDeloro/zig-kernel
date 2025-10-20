@@ -27,7 +27,10 @@ pub export fn handle_trap(f: *riscv.TrapFrame) void {
     } else if (scause.caused_by == .interrupt and scause.code == 5) {
         timer.handleTimer();
     } else {
-        log.err("Unexpected trap with frame: {}", .{f});
+        log.err("Unexpected trap", .{});
+        f.logFrame();
+        const pt: riscv.sv32.PageTable.Ptr = Csr.read(.satp).toPageTable();
+        pt.logMemoryMap();
         std.debug.panic("unexpected trap scause={x}, stval={x}, sepc={x}\n", .{ scause, stval, sepc });
     }
 

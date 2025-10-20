@@ -90,13 +90,18 @@ saved_registers: SavedRegisters,
 page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8 align(4),
 
+const KernelProcessStackSize: usize = 64 * 1024;
+
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
-    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable,
-    .saved_registers = .init(@intFromPtr(&idle), null) };
+    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = self.stack[self.stack.len - 1 ..], .stack = undefined, .state = .runnable, .saved_registers = .init(@intFromPtr(&idle), null) };
 }
 
-pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) noreturn) !void {
+pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) noreturn, page_alloc: std.mem.Allocator) !void {
     const page_table = @import("processes.zig").Idle.page_table;
+
+    // Allocate and map stack pages
+    const pages = try lib.allocPagesFromLen(KernelProcessStackSize);
+    try page_table.mapRange(pages, UserBase, "rwxu", page_alloc);
 
     self.* = Self{
         .pid = pid,
@@ -111,6 +116,7 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) nore
     };
 }
 
+/// Jump to s0 (kernel function to run in this process) in kernel mode and with interrupts enabled.
 fn kernelEntry() callconv(.naked) noreturn {
     const sstatus = Csr.Sstatus{
         .sie = true,
@@ -123,7 +129,7 @@ fn kernelEntry() callconv(.naked) noreturn {
         :
         : [sstatus] "r" (sstatus),
     );
-    while (true) asm volatile("wfi");
+    while (true) asm volatile ("wfi");
 }
 
 pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.Allocator) !void {
@@ -139,9 +145,7 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
         .pid = pid,
         .sp = self.stack[self.stack.len - 1 ..],
         .state = .runnable,
-        .saved_registers = SavedRegisters{
-            .ra = @intFromPtr(&userEntry),
-        },
+        .saved_registers = .init(@intFromPtr(&userEntry), null),
         .page_table = page_table,
         .stack = undefined,
     };
@@ -172,6 +176,5 @@ pub fn format(
     _: std.fmt.FormatOptions,
     writer: anytype,
 ) !void {
-    try writer.print("{{{*} #{d} sp {x} ra {x} {s}}}", .{ self, self.pid, @intFromPtr(self.sp),
-self.saved_registers.ra(), @tagName(self.state) });
+    try writer.print("{{{*} #{d} sp {x} ra {x} {s}}}", .{ self, self.pid, @intFromPtr(self.sp), self.saved_registers.ra(), @tagName(self.state) });
 }

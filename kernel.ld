@@ -16,6 +16,12 @@ SECTIONS {
         __rodata_end = .;
     }
 
+    .sdata : ALIGN(4096) {
+        __sdata = .;
+        *(.sdata .sdata.*);
+        __sdata_end = .;
+    }
+
     .data : ALIGN(4096) {
         __data = .;
         *(.data .data.*);

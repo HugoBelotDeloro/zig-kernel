@@ -21,7 +21,7 @@ pub fn createIdleProcess(page_alloc: std.mem.Allocator) !void {
     try Process.initIdle(Idle, page_alloc);
 }
 
-pub fn createKernelProcess(entry: *const fn () callconv(.c) noreturn) !*Process {
+pub fn createKernelProcess(entry: *const fn () callconv(.c) noreturn, pa: std.mem.Allocator) !*Process {
     const proc_id = for (&Procs, 0..) |*process, id| {
         if (process.state == .unused) {
             break id;
@@ -30,7 +30,7 @@ pub fn createKernelProcess(entry: *const fn () callconv(.c) noreturn) !*Process 
 
     var proc = &Procs[proc_id];
 
-    try proc.initKernel(proc_id, entry);
+    try proc.initKernel(proc_id, entry, pa);
     log.info("Created {}", .{proc});
 
     return proc;
@@ -81,7 +81,7 @@ noinline fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
 
     current = to;
 
-    @import("root").libriscv.sv32.Satp.fromPageTable(to.page_table).set();
+    to.page_table.setActive();
 
     asm volatile (
         \\sw sp, (%[curr])
@@ -91,5 +91,5 @@ noinline fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
           [curr] "r" (&from.sp),
     );
     to.saved_registers.load();
-    asm volatile("ret");
+    asm volatile ("ret");
 }

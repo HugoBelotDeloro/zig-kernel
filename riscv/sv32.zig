@@ -35,6 +35,12 @@ pub const Satp = packed struct(u32) {
             .mode = .sv32,
         };
     }
+
+    pub inline fn toPageTable(self: Satp) PageTable.Ptr {
+        const pt = PhysAddr{ .page_offset = 0, .ppn_0 = self.ppn_0, .ppn_1 = @intCast(self.ppn_1) };
+        const ptr: u32 = @bitCast(pt);
+        return @ptrFromInt(ptr);
+    }
 };
 
 /// Sv32 Virtual Address
