@@ -75,9 +75,7 @@ const SavedRegisters = struct {
 
     pub fn format(
         self: *const SavedRegisters,
-        comptime _: []const u8,
-        _: std.fmt.FormatOptions,
-        writer: anytype,
+        writer: *std.Io.Writer,
     ) !void {
         try writer.print("{any} ", .{self.regs});
     }
@@ -171,15 +169,13 @@ fn userEntry() callconv(.naked) noreturn {
     );
 }
 
-fn idle() callconv(.Naked) noreturn {
+fn idle() callconv(.naked) noreturn {
     while (true) asm volatile ("wfi");
 }
 
 pub fn format(
     self: *Self,
-    comptime _: []const u8,
-    _: std.fmt.FormatOptions,
-    writer: anytype,
+    writer: *std.Io.Writer,
 ) !void {
     try writer.print("{{{*} #{d} sp {x} ra {x} {s}}}", .{ self, self.pid, @intFromPtr(self.sp), self.saved_registers.ra(), @tagName(self.state) });
 }

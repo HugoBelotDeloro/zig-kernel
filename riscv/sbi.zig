@@ -91,7 +91,7 @@ pub fn sbiCall0(fid: usize, eid: Extension) SbiRet {
           [val] "={a1}" (val),
         : [arg6] "{a6}" (fid),
           [arg7] "{a7}" (eid),
-        : "memory"
+        : .{.memory = true}
     );
     if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };
@@ -107,7 +107,7 @@ pub fn sbiCall1(arg0: usize, fid: usize, eid: Extension) SbiRet {
         : [arg0] "{a0}" (arg0),
           [arg6] "{a6}" (fid),
           [arg7] "{a7}" (eid),
-        : "memory"
+        : .{.memory = true}
     );
     if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };
@@ -124,7 +124,7 @@ pub fn sbiCall2(arg0: usize, arg1: usize, fid: usize, eid: Extension) SbiRet {
           [arg1] "{a1}" (arg1),
           [arg6] "{a6}" (fid),
           [arg7] "{a7}" (eid),
-        : "memory"
+        : .{.memory = true}
     );
     if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };
@@ -145,7 +145,7 @@ pub fn sbiCall6(arg0: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize,
           [arg5] "{a5}" (arg5),
           [arg6] "{a6}" (fid),
           [arg7] "{a7}" (eid),
-        : "memory"
+        : .{.memory = true}
     );
     if (err != 0) log.err("SBI call: {d}", .{err});
     return SbiRet{ .err = err, .value = val };

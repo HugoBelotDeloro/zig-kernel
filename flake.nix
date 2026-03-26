@@ -1,6 +1,7 @@
 {
   description = "A simple flake template";
 
+  inputs.nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
   inputs.zig.url = "github:mitchellh/zig-overlay";
   inputs.zig.inputs.nixpkgs.follows = "nixpkgs";
   inputs.zls.url = "github:zigtools/zls";

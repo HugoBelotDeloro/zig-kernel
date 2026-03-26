@@ -53,13 +53,8 @@ pub const Csr = union(enum) {
 
         pub fn format(
             self: Scause,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
+            writer: *std.Io.Writer,
         ) !void {
-            _ = fmt;
-            _ = options;
-
             const bytes: u32 = @bitCast(self);
 
             try writer.print("{s} {s} ({x})", .{ switch (self.caused_by) {
@@ -105,13 +100,8 @@ pub const Csr = union(enum) {
 
         pub fn format(
             self: Sie,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
+            writer: *std.Io.Writer,
         ) !void {
-            _ = fmt;
-            _ = options;
-
             try writer.print("{{sw: {s}, tm: {s}, ext: {s}}}", .{
                 if (self.software) "enabled" else "disabled",
                 if (self.timer) "enabled" else "disabled",
@@ -156,13 +146,8 @@ pub const Csr = union(enum) {
 
         pub fn format(
             self: Sstatus,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
-            writer: anytype,
+            writer: *std.Io.Writer,
         ) !void {
-            _ = fmt;
-            _ = options;
-
             try writer.print("{{interrupts: {s} (prev {s}), prev privilege: {s}}}", .{
                 if (self.sie) "enabled" else "disabled",
                 if (self.spie) "enabled" else "disabled",

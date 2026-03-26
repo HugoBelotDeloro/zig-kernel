@@ -31,7 +31,7 @@ pub fn createKernelProcess(entry: *const fn () callconv(.c) noreturn, pa: std.me
     var proc = &Procs[proc_id];
 
     try proc.initKernel(proc_id, entry, pa);
-    log.info("Created {}", .{proc});
+    log.info("Created {f}", .{proc});
 
     return proc;
 }
@@ -46,7 +46,7 @@ pub fn createUserProcess(image: []const u8, pa: std.mem.Allocator) !*Process {
     var proc = &Procs[proc_id];
 
     try proc.initUser(proc_id, image, pa);
-    log.info("Created {}", .{proc});
+    log.info("Created {f}", .{proc});
 
     return proc;
 }
@@ -70,7 +70,7 @@ pub fn yield() void {
     switchContextTo(current, next);
 }
 
-noinline fn switchContextTo(from: *Process, to: *Process) callconv(.C) void {
+noinline fn switchContextTo(from: *Process, to: *Process) callconv(.c) void {
     from.saved_registers.save();
 
     log.info("switching from process #{d} to #{d} @ {x}", .{ from.pid, to.pid, to.saved_registers.ra() });

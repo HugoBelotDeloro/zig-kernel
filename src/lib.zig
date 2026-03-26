@@ -17,14 +17,25 @@ pub const PageAllocator = page_allocator.PageAllocator;
 
 // Logging
 
-const Writer = std.io.Writer(void, WriteError, writeToSerialConsole);
-pub const serialWriter = Writer{
-    .context = {},
+pub var serialWriter = std.Io.Writer{
+    .buffer = &[_]u8{},
+    .vtable = &std.Io.Writer.VTable {
+        .drain = &drain,
+    },
 };
 
-const WriteError = error{};
-fn writeToSerialConsole(context: void, bytes: []const u8) WriteError!usize {
-    _ = context;
+fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
+    _ = splat;
+    var total = writeToSerialConsole(w.buffer[0..w.end]);
+
+    for (data) |slice| {
+        total += writeToSerialConsole(slice);
+    }
+
+    return total;
+}
+
+fn writeToSerialConsole(bytes: []const u8) usize {
     for (bytes) |c| {
         riscv.sbi.putChar(c);
     }
@@ -32,14 +43,14 @@ fn writeToSerialConsole(context: void, bytes: []const u8) WriteError!usize {
 }
 
 pub fn panic(msg: []const u8, return_address: ?usize) noreturn {
-    try serialWriter.print("\n\nPANIC @ {?x}: {s}\n", .{ return_address, msg });
+    serialWriter.print("\n\nPANIC @ {?x}: {s}\n", .{ return_address, msg }) catch {};
 
     while (true) asm volatile ("wfi");
 }
 
 pub fn logFn(
     comptime level: std.log.Level,
-    comptime scope: @Type(.enum_literal),
+    comptime scope: @EnumLiteral(),
     comptime format: []const u8,
     args: anytype,
 ) void {

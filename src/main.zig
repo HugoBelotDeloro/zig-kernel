@@ -41,13 +41,13 @@ export fn kernel_setup() noreturn {
     libriscv.setTrapHandler();
 
     kmain() catch |err| {
-        lib.serialWriter.print("ERROR: {!}\n", .{err}) catch {};
+        lib.serialWriter.print("ERROR: {}\n", .{err}) catch {};
     };
 
     std.debug.panic("kmain returned", .{});
 }
 
-const KAllocator = std.heap.GeneralPurposeAllocator(.{
+const KAllocator = std.heap.DebugAllocator(.{
     .thread_safe = false,
     .page_size = PageSize,
     .backing_allocator_zeroes = false,
@@ -79,8 +79,11 @@ fn loop() callconv(.c) noreturn {
 }
 
 pub fn kmain() !void {
-    var gpa_instance = KAllocator{ .backing_allocator = PageAllocator };
-    const gpa = gpa_instance.allocator();
+    //var gpa_instance = KAllocator{ .backing_allocator = PageAllocator };
+
+    var heap_buffer: [4096 * 32]u8 = undefined;
+    var fba_instance = std.heap.FixedBufferAllocator.init(&heap_buffer);
+    const gpa = fba_instance.allocator();
 
     const log = std.log.scoped(.kernel);
     log.info("========== kernel started ==========", .{});

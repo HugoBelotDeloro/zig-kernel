@@ -16,7 +16,7 @@ pub export fn handle_trap(f: *riscv.TrapFrame) void {
     const stval: usize = Csr.read(.stval);
     const sepc: usize = Csr.read(.sepc);
 
-    log.info("trap: {} @ {x} from {c}-mode", .{ scause, sepc, @as(u8, if (Csr.read(.sstatus).spp == .user)
+    log.info("trap: {f} @ {x} from {c}-mode", .{ scause, sepc, @as(u8, if (Csr.read(.sstatus).spp == .user)
         'U'
     else
         'S') });
@@ -31,7 +31,7 @@ pub export fn handle_trap(f: *riscv.TrapFrame) void {
         f.logFrame();
         const pt: riscv.sv32.PageTable.Ptr = Csr.read(.satp).toPageTable();
         pt.logMemoryMap();
-        std.debug.panic("unexpected trap scause={x}, stval={x}, sepc={x}\n", .{ scause, stval, sepc });
+        std.debug.panic("unexpected trap scause={f}, stval={x}, sepc={x}\n", .{ scause, stval, sepc });
     }
 
     // Reenable interrupts

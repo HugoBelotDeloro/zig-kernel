@@ -29,41 +29,53 @@ fn getChar() u8 {
     return @truncate(syscall(.getchar, 0, 0, 0));
 }
 
-const WriteError = error{};
-const Context = void;
-
-fn writeToSerialConsole(context: Context, bytes: []const u8) WriteError!usize {
-    _ = context;
+fn writeToSerialConsole(bytes: []const u8) usize {
     for (bytes) |c| {
         putChar(c);
     }
     return bytes.len;
 }
 
-const Writer = std.io.Writer(Context, WriteError, writeToSerialConsole);
-pub const serialWriter = Writer{
-    .context = {},
-};
+fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
+    _ = splat;
+    var total = writeToSerialConsole(w.buffer[0..w.end]);
 
-const ReadError = error{};
-
-fn readFromSerialConsole(context: *const anyopaque, buffer: []u8) anyerror!usize {
-    _ = context;
-    var i: usize = 0;
-    while (i < buffer.len) {
-        const c = getChar();
-        putChar(c);
-        buffer[i] = c;
-        if (c == '\r') {
-            putChar('\n');
-            break;
-        }
-        i += 1;
+    for (data) |slice| {
+        total += writeToSerialConsole(slice);
     }
-    return i;
+
+    return total;
 }
 
-const serialReader = std.io.AnyReader{ .context = undefined, .readFn = readFromSerialConsole };
+pub var serialWriter = std.Io.Writer {
+    .vtable = &std.Io.Writer.VTable{
+        .drain = &drain,
+    },
+    .buffer = &[_]u8{},
+};
+
+fn stream(r: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Reader.StreamError!usize {
+    _ = r;
+    for (0..@intFromEnum(limit)) |i| {
+        const c = getChar();
+        putChar(c);
+        try w.writeByte(c);
+        if (c == '\r') {
+            putChar('\n');
+            return i;
+        }
+    }
+    return @intFromEnum(limit);
+}
+
+pub var serialReader = std.Io.Reader {
+    .vtable = &std.Io.Reader.VTable {
+        .stream = &stream,
+    },
+    .buffer = &[_]u8{},
+    .seek = 0,
+    .end = 0,
+};
 
 export fn start() linksection(".text.start") callconv(.naked) void {
     asm volatile (
@@ -85,7 +97,7 @@ fn main() !void {
     while (true) {
         try serialWriter.print("> ", .{});
         var buf: [128]u8 = undefined;
-        const size = try serialReader.read(&buf);
+        const size = try serialReader.readSliceShort(&buf);
         if (std.mem.eql(u8, buf[0..size], "hello")) {
             try serialWriter.print("Hello from shell!\n", .{});
         } else if (std.mem.eql(u8, buf[0..size], "exit")) {

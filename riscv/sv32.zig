@@ -155,13 +155,8 @@ const PageFlags = packed struct(u9) {
 
     pub fn format(
         self: PageFlags,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
+        writer: *std.Io.Writer,
     ) !void {
-        _ = fmt;
-        _ = options;
-
         const str = "rwxugad??";
         var repr = str.*;
         const s: u9 = @bitCast(self);
@@ -203,15 +198,10 @@ const PageTableEntry = packed struct(u32) {
 
     pub fn format(
         self: PageTableEntry,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
+        writer: *std.Io.Writer,
     ) !void {
-        _ = fmt;
-        _ = options;
-
         if (self.v) {
-            try writer.print("*{x}-{}", .{ self.address(), self.flags });
+            try writer.print("*{x}-{f}", .{ self.address(), self.flags });
         } else {
             _ = try writer.write("Invalid");
         }
@@ -228,7 +218,7 @@ pub const PageTable = struct {
     }
 
     pub fn create(page_alloc: std.mem.Allocator) !*align(PageSize) PageTable {
-        const page_table = try page_alloc.alignedAlloc(PageTable, @intCast(PageSize), 1);
+        const page_table = try page_alloc.alignedAlloc(PageTable, .fromByteUnits(PageSize), 1);
         return &page_table.ptr[0];
     }
 
@@ -250,13 +240,13 @@ pub const PageTable = struct {
             const page = try PageTable.create(page_alloc);
             const addr = PhysAddr.from(@intFromPtr(page));
             entry_1.init(.{}, addr);
-            log.debug("new lv1 PTE: {}", .{entry_1});
+            log.debug("new lv1 PTE: {f}", .{entry_1});
         }
 
         const table_0 = entry_1.nextPage();
         const entry_0 = &table_0.entries[va.vpn_0];
         entry_0.* = PageTableEntry{ .ppn_0 = pa.ppn_0, .ppn_1 = pa.ppn_1, .v = true, .flags = flags };
-        log.debug("new lv2 PTE: {}", .{entry_0});
+        log.debug("new lv2 PTE: {f}", .{entry_0});
     }
 
     pub fn mapPage(self: Ptr, va: u32, pa: u32, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
@@ -281,7 +271,7 @@ pub const PageTable = struct {
                 if (!leaf.v) continue;
 
                 if (previous_valid and (!leaf.v or (leaf.v and previous_flags != leaf.flags))) {
-                    log.info("{x}-{x}: {d:8} pages {}", .{ start_address, start_address + PageSize *
+                    log.info("{x}-{x}: {d:8} pages {f}", .{ start_address, start_address + PageSize *
                         count - 1, count, previous_flags });
                     previous_valid = leaf.v;
                 }
@@ -297,7 +287,7 @@ pub const PageTable = struct {
             }
         };
 
-        if (previous_valid) log.info("{x}-{x}: {d:8} pages {}", .{ start_address, start_address + PageSize *
+        if (previous_valid) log.info("{x}-{x}: {d:8} pages {f}", .{ start_address, start_address + PageSize *
             count - 1, count, previous_flags });
     }
 };
@@ -323,7 +313,7 @@ test "virtual addresses are built correctly" {
 test "page flags representation" {
     const flags = PageFlags.Rwx;
     var b: [@bitSizeOf(PageFlags)]u8 = undefined;
-    const s = try std.fmt.bufPrint(&b, "{}", .{flags});
+    const s = try std.fmt.bufPrint(&b, "{f}", .{flags});
     try t.expectEqualSlices(u8, "rwx------", s);
 }
 
