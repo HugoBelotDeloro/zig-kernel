@@ -19,7 +19,7 @@ pub const PageAllocator = page_allocator.PageAllocator;
 
 pub var serialWriter = std.Io.Writer{
     .buffer = &[_]u8{},
-    .vtable = &std.Io.Writer.VTable {
+    .vtable = &std.Io.Writer.VTable{
         .drain = &drain,
     },
 };

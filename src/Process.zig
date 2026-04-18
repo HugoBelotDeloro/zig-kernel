@@ -19,80 +19,55 @@ const State = enum {
     exited,
 };
 
-const SavedRegisters = struct {
-    regs: [13]usize = [_]usize{0} ** 13,
-
-    pub fn init(initial_return_address: usize, init_param: ?usize) SavedRegisters {
-        var sr = SavedRegisters{};
-        sr.regs[0] = initial_return_address;
-        if (init_param) |s0| sr.regs[1] = s0;
-        return sr;
-    }
-
-    pub fn ra(self: *SavedRegisters) usize {
-        return self.regs[0];
-    }
-
-    pub inline fn save(self: *SavedRegisters) void {
-        asm volatile (
-            \\sw ra, 4 * 0(%[regs])
-            \\sw s0, 4 * 1(%[regs])
-            \\sw s1, 4 * 2(%[regs])
-            \\sw s2, 4 * 3(%[regs])
-            \\sw s3, 4 * 4(%[regs])
-            \\sw s4, 4 * 5(%[regs])
-            \\sw s5, 4 * 6(%[regs])
-            \\sw s6, 4 * 7(%[regs])
-            \\sw s7, 4 * 8(%[regs])
-            \\sw s8, 4 * 9(%[regs])
-            \\sw s9, 4 * 10(%[regs])
-            \\sw s10, 4 * 11(%[regs])
-            \\sw s11, 4 * 12(%[regs])
-            :
-            : [regs] "r" (&self.regs),
-        );
-    }
-
-    pub inline fn load(self: *SavedRegisters) void {
-        asm volatile (
-            \\lw ra, 4 * 0(%[regs])
-            \\lw s0, 4 * 1(%[regs])
-            \\lw s1, 4 * 2(%[regs])
-            \\lw s2, 4 * 3(%[regs])
-            \\lw s3, 4 * 4(%[regs])
-            \\lw s4, 4 * 5(%[regs])
-            \\lw s5, 4 * 6(%[regs])
-            \\lw s6, 4 * 7(%[regs])
-            \\lw s7, 4 * 8(%[regs])
-            \\lw s8, 4 * 9(%[regs])
-            \\lw s9, 4 * 10(%[regs])
-            \\lw s10, 4 * 11(%[regs])
-            \\lw s11, 4 * 12(%[regs])
-            :
-            : [regs] "r" (&self.regs),
-        );
-    }
-
-    pub fn format(
-        self: *const SavedRegisters,
-        writer: *std.Io.Writer,
-    ) !void {
-        try writer.print("{any} ", .{self.regs});
-    }
-};
-
 pid: usize,
 state: State = .unused,
 sp: [*]u8,
-saved_registers: SavedRegisters,
 page_table: sv32.PageTable.Ptr,
 stack: [StackSize]u8 align(4),
 
 const KernelProcessStackSize: usize = 64 * 1024;
 
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
-    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc),
-    .sp = self.stack[self.stack.len..], .stack = undefined, .state = .runnable, .saved_registers = .init(@intFromPtr(&idle), null) };
+    self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = undefined, .stack = undefined, .state = .runnable };
+
+    self.sp = initStack(&self.stack, @intFromPtr(&idle), null);
+}
+
+fn initStack(stack: *align(4) [StackSize]u8, initial_return_address: usize, initial_param: ?usize) [*]u8 {
+    const stack_usize: *[StackSize / @sizeOf(usize)]usize align(4) = @ptrCast(stack);
+    const regs = stack_usize[stack_usize.len - 13 ..];
+
+    regs[0] = initial_return_address;
+    if (initial_param) |param| {
+        regs[1] = param;
+        for (regs[2..]) |*reg| {
+            reg.* = 0;
+        }
+    } else {
+        for (regs[1..]) |*reg| {
+            reg.* = 0;
+        }
+    }
+
+    return @ptrCast(regs);
+}
+
+/// Only meaningful on a stopped process of course
+pub fn logSavedRegisters(self: *Self) void {
+    const sp: usize = @intFromPtr(self.sp);
+    const stack_addr_int: usize = @intFromPtr(&self.stack);
+    if (sp <= stack_addr_int) {
+        log.warn("Process {x}: sp points outside of the stack (sp = {x}, stack = {x}-{x})", .{ self.pid, sp, stack_addr_int, stack_addr_int + self.stack.len });
+    } else if (sp > stack_addr_int + self.stack.len) {
+        log.warn("Process {x}: sp points outside of the stack (stack = {x}-{x}, sp = {x})", .{ self.pid, stack_addr_int, stack_addr_int + self.stack.len, sp });
+    }
+    log.info("Saved sp for process {d}: {x}", .{ self.pid, sp });
+    const regs: [*]usize = @ptrCast(@alignCast(self.sp));
+
+    const RegNames: [13][]const u8 = [_][]const u8{ "ra", "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10", "s11" };
+    for (regs[0..13], RegNames) |reg, reg_name| {
+        log.info("Saved value for {s}: {x}", .{ reg_name, reg });
+    }
 }
 
 pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) noreturn, page_alloc: std.mem.Allocator) !void {
@@ -104,15 +79,14 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) nore
 
     self.* = Self{
         .pid = pid,
-        .sp = self.stack[self.stack.len..],
+        .sp = undefined,
         .state = .runnable,
-        .saved_registers = .init(
-            @intFromPtr(&kernelEntry),
-            @intFromPtr(entry),
-        ),
         .page_table = page_table,
         .stack = undefined,
     };
+
+    self.sp = initStack(&self.stack, @intFromPtr(&kernelEntry), @intFromPtr(entry));
+    self.logSavedRegisters();
 }
 
 /// Jump to s0 (kernel function to run in this process) in kernel mode and with interrupts enabled.
@@ -123,9 +97,9 @@ fn kernelEntry() callconv(.naked) noreturn {
     };
     const kernel_stack_top = UserBase + KernelProcessStackSize;
     asm volatile (
-        \\mv sp, %[stack_top]
-        \\csrw sepc, s0
         \\csrw sstatus, %[sstatus]
+        \\csrw sepc, s0
+        \\mv sp, %[stack_top]
         \\sret
         :
         : [stack_top] "r" (kernel_stack_top),
@@ -145,12 +119,13 @@ pub fn initUser(self: *Self, pid: usize, image: []const u8, page_alloc: std.mem.
 
     self.* = Self{
         .pid = pid,
-        .sp = self.stack[self.stack.len..],
+        .sp = undefined,
         .state = .runnable,
-        .saved_registers = .init(@intFromPtr(&userEntry), null),
         .page_table = page_table,
         .stack = undefined,
     };
+
+    self.sp = initStack(&self.stack, @intFromPtr(&userEntry), null);
 }
 
 /// Jump to UserBase in user mode with interrupts enabled
@@ -177,5 +152,5 @@ pub fn format(
     self: *Self,
     writer: *std.Io.Writer,
 ) !void {
-    try writer.print("{{{*} #{d} sp {x} ra {x} {s}}}", .{ self, self.pid, @intFromPtr(self.sp), self.saved_registers.ra(), @tagName(self.state) });
+    try writer.print("{{{*} #{d} sp {x} {s}}}", .{ self, self.pid, @intFromPtr(self.sp), @tagName(self.state) });
 }

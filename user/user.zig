@@ -47,7 +47,7 @@ fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Write
     return total;
 }
 
-pub var serialWriter = std.Io.Writer {
+pub var serialWriter = std.Io.Writer{
     .vtable = &std.Io.Writer.VTable{
         .drain = &drain,
     },
@@ -68,8 +68,8 @@ fn stream(r: *std.Io.Reader, w: *std.Io.Writer, limit: std.Io.Limit) std.Io.Read
     return @intFromEnum(limit);
 }
 
-pub var serialReader = std.Io.Reader {
-    .vtable = &std.Io.Reader.VTable {
+pub var serialReader = std.Io.Reader{
+    .vtable = &std.Io.Reader.VTable{
         .stream = &stream,
     },
     .buffer = &[_]u8{},

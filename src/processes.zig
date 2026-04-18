@@ -10,7 +10,6 @@ var Procs: [ProcsMax]Process = .{Process{
     .pid = undefined,
     .sp = undefined,
     .stack = undefined,
-    .saved_registers = undefined,
     .page_table = undefined,
 }} ** ProcsMax;
 
@@ -57,39 +56,68 @@ pub fn yield() void {
         if (i != 0 and Procs[i].state == .runnable) break;
     }
 
-    const next = &Procs[i];
-
-    // Switch to idle
-    if (next.state != .runnable) switchContextTo(current, Idle);
+    const next = if (Procs[i].state == .runnable) &Procs[i] else Idle;
 
     if (next == current) {
         log.debug("process #{d} keeps running", .{current.pid});
         return;
     }
 
-    switchContextTo(current, next);
-}
+    next.page_table.setActive();
 
-noinline fn switchContextTo(from: *Process, to: *Process) callconv(.c) void {
-    from.saved_registers.save();
-
-    log.info("switching from process #{d} to #{d} @ {x}", .{ from.pid, to.pid, to.saved_registers.ra() });
     asm volatile ("csrw sscratch, %[sscratch]"
         :
-        : [sscratch] "r" (@as([*]u8, @ptrCast(&to.stack)) + to.stack.len),
+        : [sscratch] "r" (@as([*]u8, @ptrCast(&next.stack)) + next.stack.len),
     );
 
-    current = to;
+    log.info("switching from process #{d} to #{d}", .{ current.pid, next.pid });
 
-    to.page_table.setActive();
+    log.warn("process {d} sp: {any}", .{ next.pid, next.sp });
+    next.logSavedRegisters();
 
+    const curr = current;
+    current = next;
+    if (curr.pid == 2 and next.pid == 1) call_thing();
+    switchContextTo(&curr.sp, &next.sp);
+}
+
+fn call_thing() void {}
+
+noinline fn switchContextTo(from: *[*]u8, to: *[*]u8) callconv(.c) void {
     asm volatile (
+        \\addi sp, sp, -4 * 13
+        \\sw ra, 4 * 0(sp)
+        \\sw s0, 4 * 1(sp)
+        \\sw s1, 4 * 2(sp)
+        \\sw s2, 4 * 3(sp)
+        \\sw s3, 4 * 4(sp)
+        \\sw s4, 4 * 5(sp)
+        \\sw s5, 4 * 6(sp)
+        \\sw s6, 4 * 7(sp)
+        \\sw s7, 4 * 8(sp)
+        \\sw s8, 4 * 9(sp)
+        \\sw s9, 4 * 10(sp)
+        \\sw s10, 4 * 11(sp)
+        \\sw s11, 4 * 12(sp)
         \\sw sp, (%[curr])
         \\lw sp, (%[next])
+        \\lw ra, 4 * 0(sp)
+        \\lw s0, 4 * 1(sp)
+        \\lw s1, 4 * 2(sp)
+        \\lw s2, 4 * 3(sp)
+        \\lw s3, 4 * 4(sp)
+        \\lw s4, 4 * 5(sp)
+        \\lw s5, 4 * 6(sp)
+        \\lw s6, 4 * 7(sp)
+        \\lw s7, 4 * 8(sp)
+        \\lw s8, 4 * 9(sp)
+        \\lw s9, 4 * 10(sp)
+        \\lw s10, 4 * 11(sp)
+        \\lw s11, 4 * 12(sp)
+        \\addi sp, sp, 4 * 13
+        \\ret
         :
-        : [next] "r" (&to.sp),
-          [curr] "r" (&from.sp),
+        : [next] "r" (to),
+          [curr] "r" (from),
     );
-    to.saved_registers.load();
-    asm volatile ("ret");
 }

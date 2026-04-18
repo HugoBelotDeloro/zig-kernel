@@ -62,7 +62,7 @@ pub const os = struct {
 };
 
 const Million: usize = 1_000_000;
-const TimerDelay = 30 * Million;
+const TimerDelay = 10 * Million;
 
 fn loop() callconv(.c) noreturn {
     var sstatus = libriscv.Csr.read(.sstatus);
