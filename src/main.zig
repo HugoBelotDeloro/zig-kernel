@@ -121,6 +121,8 @@ pub fn kmain() !void {
     libriscv.Csr.write(sie);
     log.info("All supervisor interrupts enabled", .{});
 
+    try @import("virtio.zig").init();
+
     // Set initial timer
     const rdtime = libriscv.readTime();
     libriscv.sbi.setTimer(rdtime + TimerDelay);

@@ -30,6 +30,10 @@ const KernelProcessStackSize: usize = 64 * 1024;
 pub fn initIdle(self: *Self, page_alloc: std.mem.Allocator) !void {
     self.* = Self{ .pid = 0, .page_table = try @import("lib/segmentation.zig").mapKernel(page_alloc), .sp = undefined, .stack = undefined, .state = .runnable };
 
+    // Map Virtio block region
+    const blk_pa = @import("virtio.zig").Blk.Paddr;
+    try self.page_table.mapRange(@as(*[PageSize]u8, @ptrFromInt(blk_pa)), blk_pa, "rw", page_alloc);
+
     self.sp = initStack(&self.stack, @intFromPtr(&idle), null);
 }
 

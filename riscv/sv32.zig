@@ -249,7 +249,7 @@ pub const PageTable = struct {
         log.debug("new lv2 PTE: {f}", .{entry_0});
     }
 
-    pub fn mapPage(self: Ptr, va: u32, pa: u32, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
+    fn mapPage(self: Ptr, va: u32, pa: u32, flags: PageFlags, page_alloc: std.mem.Allocator) !void {
         return self.mapPageInner(VirtAddr.from(va), PhysAddr.from(pa), flags, page_alloc);
     }
 
