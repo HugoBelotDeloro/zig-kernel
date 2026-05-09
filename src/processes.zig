@@ -71,17 +71,21 @@ pub fn yield() void {
     );
 
     log.info("switching from process #{d} to #{d}", .{ current.pid, next.pid });
-    next.logSavedRegisters();
 
     const curr = current;
     current = next;
-    if (curr.pid == 2 and next.pid == 1) call_thing();
-    switchContextTo(&curr.sp, &next.sp);
+
+    asm volatile (
+        \\mv a0, %[from_sp]
+        \\mv a1, %[to_sp]
+        \\call switchContextTo
+        :
+        : [from_sp] "r" (&curr.sp),
+          [to_sp] "r" (&next.sp),
+    );
 }
 
-fn call_thing() void {}
-
-noinline fn switchContextTo(from: *[*]u8, to: *[*]u8) callconv(.c) void {
+export fn switchContextTo() callconv(.naked) void {
     asm volatile (
         \\addi sp, sp, -4 * 13
         \\sw ra, 4 * 0(sp)
@@ -97,8 +101,8 @@ noinline fn switchContextTo(from: *[*]u8, to: *[*]u8) callconv(.c) void {
         \\sw s9, 4 * 10(sp)
         \\sw s10, 4 * 11(sp)
         \\sw s11, 4 * 12(sp)
-        \\sw sp, (%[curr])
-        \\lw sp, (%[next])
+        \\sw sp, (a0)
+        \\lw sp, (a1)
         \\lw ra, 4 * 0(sp)
         \\lw s0, 4 * 1(sp)
         \\lw s1, 4 * 2(sp)
@@ -114,8 +118,5 @@ noinline fn switchContextTo(from: *[*]u8, to: *[*]u8) callconv(.c) void {
         \\lw s11, 4 * 12(sp)
         \\addi sp, sp, 4 * 13
         \\ret
-        :
-        : [next] "r" (to),
-          [curr] "r" (from),
     );
 }

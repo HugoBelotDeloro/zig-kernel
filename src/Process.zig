@@ -86,7 +86,6 @@ pub fn initKernel(self: *Self, pid: usize, entry: *const fn () callconv(.c) nore
     };
 
     self.sp = initStack(&self.stack, @intFromPtr(&kernelEntry), @intFromPtr(entry));
-    self.logSavedRegisters();
 }
 
 /// Jump to s0 (kernel function to run in this process) in kernel mode and with interrupts enabled.
