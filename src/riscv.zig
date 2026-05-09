@@ -38,6 +38,7 @@ pub export fn handle_trap(f: *riscv.TrapFrame) void {
     var sstatus: Csr.Sstatus = @bitCast(Csr.read(.sstatus));
     sstatus.sie = true;
     Csr.write(sstatus);
+    lib.yield();
 }
 
 pub fn checkExtensions(comptime required_extensions: []const riscv.sbi.Extension) void {

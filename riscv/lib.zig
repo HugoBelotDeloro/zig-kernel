@@ -12,14 +12,14 @@ pub const setTrapHandler = trap.setTrapHandler;
 pub fn readTime() u64 {
     while (true) {
         const high = asm volatile ("rdtimeh %[ret]"
-            : [ret] "=r" (-> u64),
+            : [ret] "=r" (-> u32),
         );
         const low = asm volatile ("rdtime %[ret]"
-            : [ret] "=r" (-> usize),
+            : [ret] "=r" (-> u32),
         );
         if (high == asm volatile ("rdtimeh %[ret]"
-            : [ret] "=r" (-> u64),
+            : [ret] "=r" (-> u32),
         ))
-            return (high << 32) + low;
+            return (@as(u64, @intCast(high)) << 32) + low;
     }
 }

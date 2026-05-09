@@ -5,13 +5,13 @@ const lib = @import("lib.zig");
 
 const log = std.log.scoped(.processes);
 
-var Procs: [ProcsMax]Process = .{Process{
+var Procs: [ProcsMax]Process = @splat(Process{
     .state = .unused,
     .pid = undefined,
     .sp = undefined,
     .stack = undefined,
     .page_table = undefined,
-}} ** ProcsMax;
+});
 
 pub var current: *Process = undefined;
 pub const Idle: *Process = &Procs[0];
@@ -71,8 +71,6 @@ pub fn yield() void {
     );
 
     log.info("switching from process #{d} to #{d}", .{ current.pid, next.pid });
-
-    log.warn("process {d} sp: {any}", .{ next.pid, next.sp });
     next.logSavedRegisters();
 
     const curr = current;
