@@ -1,21 +1,5 @@
 const BlkPaddr = @import("../virtio.zig").Blk.Paddr;
 
-fn read32(offset: u32) u32 {
-    return @as(*volatile u32, @ptrFromInt(BlkPaddr + offset)).*;
-}
-
-fn read64(offset: u32) u64 {
-    return @as(*volatile u64, @ptrFromInt(BlkPaddr + offset)).*;
-}
-
-fn write32(offset: u32, value: u32) void {
-    @as(*volatile u32, @ptrFromInt(BlkPaddr + offset)).* = value;
-}
-
-fn fetchAndOr32(offset: u32, value: u32) void {
-    write32(offset, read32(offset) | value);
-}
-
 pub const MmioRegisterLegacy = enum(u32) {
     /// Magic value
     magic_value = 0x0,
@@ -64,6 +48,10 @@ pub const MmioRegisterLegacy = enum(u32) {
     /// Configuration space
     config_start = 0x100,
 
+    fn addr(self: MmioRegisterLegacy) *volatile u32 {
+        return @ptrFromInt(@intFromPtr(BlkPaddr) + @intFromEnum(self));
+    }
+
     pub fn read(comptime reg: MmioRegisterLegacy) u32 {
         return switch (reg) {
             .host_features_sel,
@@ -74,7 +62,7 @@ pub const MmioRegisterLegacy = enum(u32) {
             .queue_size,
             .interrupt_ack,
             => @compileError("register " ++ @tagName(reg) ++ "is not readable"),
-            else => read32(@intFromEnum(reg)),
+            else => reg.addr().*,
         };
     }
 
@@ -88,11 +76,19 @@ pub const MmioRegisterLegacy = enum(u32) {
             .queue_size_max,
             .interrupt_status,
             => @compileError("register " ++ @tagName(reg) ++ "is not writable"),
-            else => write32(@intFromEnum(reg), value),
+            else => reg.addr().* = value,
         };
     }
 
-    pub fn readConfig(offset: usize) u64 {
-        return read64(@intFromEnum(MmioRegisterLegacy.config_start) + offset);
+    pub fn getConfig() *align(8) volatile anyopaque {
+        return @ptrCast(@alignCast(MmioRegisterLegacy.config_start.addr()));
+    }
+
+    pub fn readDeviceFeatures() u64 {
+        MmioRegisterLegacy.host_features_sel.write(0);
+        const lo = MmioRegisterLegacy.host_features.read();
+        MmioRegisterLegacy.host_features_sel.write(1);
+        const hi: u64 = MmioRegisterLegacy.host_features.read();
+        return (hi << 32) + lo;
     }
 };
