@@ -7,7 +7,8 @@ pub const lib = @import("lib.zig");
 pub const PageAllocator = lib.PageAllocator;
 const Process = @import("Process.zig");
 const processes = @import("processes.zig");
-pub const riscv = @import("riscv.zig");
+const riscv = @import("riscv.zig");
+const fdt = @import("fdt.zig");
 
 const shell = @embedFile("shell.bin");
 
@@ -36,11 +37,16 @@ export fn boot() linksection(".text.boot") callconv(.naked) noreturn {
 }
 
 export fn kernel_setup() noreturn {
+    // QEMU places the address of the devicetree blob in a1
+    // (and I assume OpenSBI passes it to the kernel).
+    const dtb_addr: u32 = asm (""
+        : [ret] "={a1}" (-> u32),
+    );
     @memset(lib.segmentation.Bss[0 .. lib.segmentation.BssEnd - lib.segmentation.Bss], 0);
 
     libriscv.setTrapHandler();
 
-    kmain() catch |err| {
+    kmain(dtb_addr) catch |err| {
         lib.serialWriter.print("ERROR: {}\n", .{err}) catch {};
     };
 
@@ -78,8 +84,9 @@ fn loop() callconv(.c) noreturn {
     }
 }
 
-pub fn kmain() !void {
+pub fn kmain(dtb_addr: u32) !void {
     //var gpa_instance = KAllocator{ .backing_allocator = PageAllocator };
+    //const gpa = gpa_instance.allocator();
 
     var heap_buffer: [4096 * 32]u8 = undefined;
     var fba_instance = std.heap.FixedBufferAllocator.init(&heap_buffer);
@@ -95,6 +102,8 @@ pub fn kmain() !void {
         .ConsoleGetchar,
         .Time,
     });
+    fdt.FdtHeader.parse(dtb_addr);
+    std.debug.panic("done", .{});
 
     try processes.createIdleProcess(gpa);
     processes.current = processes.Idle;

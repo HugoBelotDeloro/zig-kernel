@@ -3,3 +3,4 @@ result
 .envrc
 .zig-cache
 zig-out
+*.dtb
