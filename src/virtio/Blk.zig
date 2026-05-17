@@ -10,6 +10,7 @@ pub const SectorSize: u32 = 512;
 pub const Paddr: [*]align(4096) volatile u32 = @ptrFromInt(0x10001000);
 const Self = @This();
 
+/// Capacity of the device expressed in 512-bytes sectors.
 blk_capacity: u64,
 vq: *SplitVirtqueue,
 
@@ -22,35 +23,10 @@ pub const Device = virtio.Device(@This()){
 fn init() virtio.DeviceInitError!Self {
     MmioRegisterLegacy.guest_page_size.write(lib.PageSize);
     const config: *volatile Configuration = @ptrCast(MmioRegisterLegacy.getConfig());
-    const self = Self{ .blk_capacity = config.capacity * SectorSize, .vq = try SplitVirtqueue.init(0) };
+    const self = Self{ .blk_capacity = config.capacity, .vq = try SplitVirtqueue.init(0) };
+    log.info("New device: virtio-blk (capacity {d} sectors)", .{self.blk_capacity});
     return self;
 }
-
-pub const Req = extern struct {
-    /// Type of the request
-    typ: enum(u32) {
-        /// Read
-        In = 0,
-        /// Write
-        Out = 1,
-        Flush = 4,
-        GetId = 8,
-        GetLifeTime = 10,
-        Discard = 11,
-        WriteZeroes = 13,
-        SecureErase = 14,
-    },
-    reserved: u32 = 0,
-    /// Offset (multiplied by 512) where the read or write is to occur.
-    sector: u64 = 0,
-    data: [512]u8,
-    /// Result of the operation, written by the device.
-    status: enum(u8) {
-        Ok = 0,
-        IoErr = 1,
-        Unsupp = 2,
-    },
-};
 
 pub const DeviceFeatures = packed struct(u64) {
     /// Device supports request barriers.
@@ -156,16 +132,42 @@ pub const Configuration = extern struct {
     },
 };
 
-pub fn read_write_disk(self: Self, buf: []u8, sector: u32, is_write: i32, blk_req: *Req) void {
-    if (sector >= self.blk_capacity / SectorSize) {
-        log.warn("trying to read/write sector {d}, but capacity is {d}", .{ sector, self.blk_capacity /
-            SectorSize });
+pub const Req = extern struct {
+    /// Type of the request
+    typ: enum(u32) {
+        /// Read
+        In = 0,
+        /// Write
+        Out = 1,
+        Flush = 4,
+        GetId = 8,
+        GetLifeTime = 10,
+        Discard = 11,
+        WriteZeroes = 13,
+        SecureErase = 14,
+    },
+    reserved: u32 = 0,
+    /// Offset (multiplied by 512) where the read or write is to occur.
+    sector: u64 = 0,
+    data: [512]u8,
+    /// Result of the operation, written by the device.
+    status: enum(u8) {
+        Ok = 0,
+        IoErr = 1,
+        Unsupp = 2,
+    },
+};
+
+pub fn read_write_disk(self: Self, buf: []u8, sector: u32, is_write: bool) !void {
+    if (sector >= self.blk_capacity) {
+        log.warn("trying to read/write sector {d}, but capacity is {d}", .{ sector, self.blk_capacity });
         return;
     }
 
+    const blk_req: *Req = @ptrCast(@alignCast(try lib.allocPages(1)));
     blk_req.sector = sector;
-    blk_req.typ = if (is_write == 1) .Out else .In;
-    if (is_write == 1) @memcpy(&blk_req.data, buf[0..SectorSize]);
+    blk_req.typ = if (is_write) .Out else .In;
+    if (is_write) @memcpy(&blk_req.data, buf[0..SectorSize]);
 
     self.vq.descriptors[0].addr = @intFromPtr(blk_req);
     self.vq.descriptors[0].len = @sizeOf(u32) * 2 + @sizeOf(u64);
@@ -174,7 +176,7 @@ pub fn read_write_disk(self: Self, buf: []u8, sector: u32, is_write: i32, blk_re
 
     self.vq.descriptors[1].addr = @intFromPtr(blk_req) + @offsetOf(Req, "data");
     self.vq.descriptors[1].len = SectorSize;
-    self.vq.descriptors[1].flags = .{ .next = true, .device_access = if (is_write == 1) .read_only else .write_only };
+    self.vq.descriptors[1].flags = .{ .next = true, .device_access = if (is_write) .read_only else .write_only };
     self.vq.descriptors[1].next = 2;
 
     self.vq.descriptors[2].addr = @intFromPtr(blk_req) + @offsetOf(Req, "status");
@@ -190,5 +192,5 @@ pub fn read_write_disk(self: Self, buf: []u8, sector: u32, is_write: i32, blk_re
         return;
     }
 
-    if (is_write == 0) @memcpy(buf, &blk_req.data);
+    if (!is_write) @memcpy(buf, &blk_req.data);
 }

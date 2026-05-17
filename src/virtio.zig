@@ -11,9 +11,7 @@ pub const Blk = @import("virtio/Blk.zig");
 pub fn init() !void {
     const blk = try Blk.Device.init();
 
-    const blk_req: *Blk.Req = @ptrCast(@alignCast(try lib.allocPages(1)));
-
     var buf: [Blk.SectorSize]u8 = undefined;
-    blk.read_write_disk(&buf, 0, 0, blk_req);
+    try blk.read_write_disk(&buf, 0, false);
     log.err("Sector: {s}", .{buf});
 }
